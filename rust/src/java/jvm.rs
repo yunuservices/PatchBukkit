@@ -1,13 +1,9 @@
 use std::path::PathBuf;
 
-use j4rs::{ClasspathEntry, InvocationArg, Jvm, JvmBuilder};
+use j4rs::{InvocationArg, Jvm, JvmBuilder};
 
-pub fn initialize_jvm(
-    classpath_entries: Vec<ClasspathEntry>,
-    j4rs_folder: &PathBuf,
-) -> Result<Jvm, String> {
+pub fn initialize_jvm(j4rs_folder: &PathBuf) -> Result<Jvm, String> {
     let jvm = JvmBuilder::new()
-        .classpath_entries(classpath_entries)
         .with_base_path(j4rs_folder)
         .build()
         .map_err(|err| format!("JVM failed to init: {:?}", err))?;

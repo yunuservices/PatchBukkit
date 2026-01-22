@@ -158,7 +158,10 @@ impl PluginManager {
             let result = jvm.invoke(
                 &loader,
                 "createPlugin",
-                &[InvocationArg::try_from(&plugin.main_class)?],
+                &[
+                    InvocationArg::try_from(&plugin.path.to_string_lossy().to_string())?,
+                    InvocationArg::try_from(&plugin.main_class)?,
+                ],
             );
 
             match result {

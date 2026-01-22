@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use j4rs::ClasspathEntry;
 use pumpkin::plugin::Context;
 use pumpkin_api_macros::{plugin_impl, plugin_method};
 
@@ -60,17 +59,13 @@ async fn on_load_inner(_plugin: &mut MyPlugin, server: Arc<Context>) -> Result<(
             }
         }
     }
-    let classpath_entries = jar_paths
-        .iter()
-        .map(|entry| ClasspathEntry::new(entry))
-        .collect();
 
     // Manage embedded resources
     cleanup_stale_files(&dirs.j4rs);
     sync_embedded_resources(&dirs.j4rs)?;
 
     // Initialize JVM and PatchBukkit server
-    let jvm = initialize_jvm(classpath_entries, &dirs.j4rs)?;
+    let jvm = initialize_jvm(&dirs.j4rs)?;
     setup_patchbukkit_server(&jvm)?;
 
     plugin_manager
