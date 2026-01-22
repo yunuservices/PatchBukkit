@@ -18,6 +18,10 @@ java/build/
 java/patchbukkit/build/
 java/patchbukkit/bin/
 
+# Examples
+examples/*/bin
+examples/*/run
+
 # Keep Gradle wrapper
 !gradle/wrapper/gradle-wrapper.jar
 !java/gradle/wrapper/gradle-wrapper.jar
