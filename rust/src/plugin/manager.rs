@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
@@ -58,18 +59,21 @@ pub struct Plugin {
 }
 
 pub struct PluginManager {
-    plugins: Arc<Mutex<Vec<Plugin>>>,
+    plugins: Arc<Mutex<HashMap<String, Plugin>>>,
 }
 
 impl PluginManager {
     pub fn new() -> Self {
         Self {
-            plugins: Arc::new(Mutex::new(Vec::new())),
+            plugins: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     pub fn add_plugin(&self, plugin: Plugin) {
-        self.plugins.lock().unwrap().push(plugin);
+        self.plugins
+            .lock()
+            .unwrap()
+            .insert(plugin.name.clone(), plugin);
     }
 
     pub fn load_paper_plugin<P: AsRef<Path>>(
@@ -127,7 +131,7 @@ impl PluginManager {
     }
 
     pub fn enable_all_plugins(&mut self, jvm: &Jvm) -> Result<()> {
-        for plugin in &mut *self.plugins.lock().unwrap() {
+        for (_plugin_name, plugin) in &mut *self.plugins.lock().unwrap() {
             let result = jvm.invoke(
                 plugin.instance.as_ref().unwrap(),
                 "onEnable",
@@ -153,7 +157,7 @@ impl PluginManager {
     }
 
     pub fn disable_all_plugins(&mut self, jvm: &Jvm) -> Result<()> {
-        for plugin in &mut *self.plugins.lock().unwrap() {
+        for (_plugin_name, plugin) in &mut *self.plugins.lock().unwrap() {
             let result = jvm.invoke(
                 plugin.instance.as_ref().unwrap(),
                 "onDisable",
@@ -179,7 +183,7 @@ impl PluginManager {
     }
 
     pub fn load_all_plugins(&mut self, jvm: &Jvm) -> Result<()> {
-        for plugin in &mut *self.plugins.lock().unwrap() {
+        for (_plugin_name, plugin) in &mut *self.plugins.lock().unwrap() {
             let result = jvm.invoke_static(
                 "org.patchbukkit.loader.PatchBukkitPluginLoader",
                 "createPlugin",

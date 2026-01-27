@@ -92,14 +92,22 @@ async fn on_load_inner(plugin: &mut PatchBukkitPlugin, server: Arc<Context>) -> 
         loop {
             match r.rx().recv() {
                 Ok(ret) => {
-                    let result = jvm
-                        .invoke(&ret, "getCallbackName", InvocationArg::empty())
-                        .unwrap();
+                    let _: anyhow::Result<()> = (|| {
+                        let result = jvm.invoke(&ret, "getCallbackName", InvocationArg::empty())?;
 
-                    let callback_name: String = jvm.to_rust(result).unwrap();
-                    match callback_name {
-                        _ => log::warn!("Received unknown callback: {:?}", callback_name),
-                    }
+                        let callback_name: String = jvm.to_rust(result)?;
+                        match callback_name.as_str() {
+                            "REGISTER_EVENT_CALLBACK" => {
+                                let listener =
+                                    jvm.invoke(&ret, "getArg", &[&InvocationArg::try_from(0)?])?;
+                                let plugin =
+                                    jvm.invoke(&ret, "getArg", &[&InvocationArg::try_from(1)?])?;
+                            }
+                            _ => log::warn!("Received unknown callback: {:?}", callback_name),
+                        }
+
+                        return Ok(());
+                    })();
                 }
                 Err(e) => {
                     log::error!("Callback channel closed: {}", e);
