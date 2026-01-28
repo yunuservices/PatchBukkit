@@ -16,7 +16,7 @@ import org.bukkit.plugin.RegisteredListener;
 import org.bukkit.plugin.UnknownDependencyException;
 import org.bukkit.plugin.java.JavaPlugin;
 
-@SuppressWarnings("deprecation")
+@SuppressWarnings({ "deprecation", "removal" })
 public class PatchBukkitPluginLoader implements PluginLoader {
 
     public static JavaPlugin createPlugin(String jarPath, String mainClass) {
@@ -81,8 +81,8 @@ public class PatchBukkitPluginLoader implements PluginLoader {
         Class<? extends Event>,
         Set<RegisteredListener>
     > createRegisteredListeners(Listener listener, Plugin plugin) {
-        // TODO: Implement event listener registration when event system is needed
-        // For now, return empty map - plugins won't be able to register events
-        return Map.of();
+        throw new UnsupportedOperationException(
+            "Unimplemented method 'createRegisteredListeners'"
+        );
     }
 }

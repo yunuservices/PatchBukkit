@@ -8,7 +8,7 @@ import java.util.OptionalInt;
 import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.NotNull;
 
-public final class PumpkinServerBuildInfo implements ServerBuildInfo {
+public final class PatchBukkitServerBuildInfo implements ServerBuildInfo {
 
     Key brandId;
     Instant startTime = Instant.now();
