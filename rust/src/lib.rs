@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use j4rs::{InvocationArg, Jvm};
 use pumpkin::plugin::Context;
 use pumpkin_api_macros::{plugin_impl, plugin_method};
 
@@ -13,162 +12,133 @@ pub mod plugin;
 use directories::setup_directories;
 use java::{
     jar::discover_jar_files,
-    jvm::{initialize_jvm, setup_patchbukkit_server},
     resources::{cleanup_stale_files, sync_embedded_resources},
 };
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, oneshot};
 
 use crate::{
-    events::register_handlers, java::jar::read_configs_from_jar, plugin::manager::PluginManager,
+    events::register_handlers,
+    java::jvm::{
+        commands::{JvmCommand, LoadPluginResult},
+        worker::JvmWorker,
+    },
 };
 
 async fn on_load_inner(plugin: &mut PatchBukkitPlugin, server: Arc<Context>) -> Result<(), String> {
     server.init_log();
     log::info!("Starting PatchBukkit");
 
-    register_handlers(plugin.plugin_manager.clone(), &server).await;
+    register_handlers(plugin.command_tx.clone(), &server).await;
 
     // Setup directories
     let dirs = setup_directories(&server)?;
 
     // Discover and prepare JAR files
     let jar_paths = discover_jar_files(&dirs.plugins);
-    for jar_path in &jar_paths {
-        match read_configs_from_jar(jar_path) {
-            Ok(configs) => match configs {
-                (Some(paper_plugin_config), spigot @ _) => {
-                    match plugin.plugin_manager.lock().await.load_paper_plugin(
-                        jar_path,
-                        &paper_plugin_config,
-                        &spigot,
-                    ) {
-                        Ok(_) => log::info!("Loaded Paper plugin from JAR: {}", jar_path.display()),
-                        Err(err) => log::error!("Failed to load Paper plugin from JAR: {}", err),
-                    }
-                }
-                (None, Some(spigot)) => {
-                    match plugin
-                        .plugin_manager
-                        .lock()
-                        .await
-                        .load_spigot_plugin(jar_path, &spigot)
-                    {
-                        Ok(_) => {
-                            log::info!("Loaded Spigot plugin from JAR: {}", jar_path.display())
-                        }
-                        Err(err) => log::error!("Failed to load Spigot plugin from JAR: {}", err),
-                    }
-                }
-                (None, None) => log::warn!(
-                    "Could not find any plugin configuration in JAR: {}",
-                    jar_path.display()
-                ),
-            },
-            Err(err) => {
+    for jar_path in jar_paths {
+        {
+            let (tx, rx) = oneshot::channel();
+            let result = plugin
+                .command_tx
+                .send(JvmCommand::LoadPlugin {
+                    plugin_path: jar_path.clone(),
+                    respond_to: tx,
+                })
+                .await;
+            if let Err(e) = result {
                 log::error!(
-                    "Failed to read configs from PatchBukkit plugin jar: {}",
-                    err
+                    "Failed to send command to load plugin {}: {}",
+                    jar_path.display(),
+                    e
                 );
             }
-        }
+            match rx.await {
+                Ok(result) => match result {
+                    LoadPluginResult::SuccessfullyLoadedSpigot => {
+                        log::info!("Loaded Spigot plugin from JAR `{}`", jar_path.display())
+                    }
+                    LoadPluginResult::SuccessfullyLoadedPaper => {
+                        log::info!("Loaded Paper plugin from JAR `{}`", jar_path.display())
+                    }
+                    LoadPluginResult::FailedToLoadSpigotPlugin(error) => {
+                        log::error!(
+                            "Failed to load Spigot plugin from JAR `{}` with error: {}",
+                            jar_path.display(),
+                            error
+                        )
+                    }
+                    LoadPluginResult::FailedToLoadPaperPlugin(error) => {
+                        log::error!(
+                            "Failed to load Paper plugin from JAR `{}` with error: {}",
+                            jar_path.display(),
+                            error
+                        )
+                    }
+                    LoadPluginResult::FailedToReadConfigurationFile(error) => {
+                        log::error!(
+                            "Failed to read configuration file from JAR `{}`: {}",
+                            jar_path.display(),
+                            error
+                        )
+                    }
+                    LoadPluginResult::NoConfigurationFile => {
+                        log::warn!(
+                            "No configuration file found for plugin from JAR `{}`",
+                            jar_path.display()
+                        )
+                    }
+                },
+                Err(e) => log::error!(
+                    "Failed to receive load plugin response for JAR `{}`: {}",
+                    jar_path.display(),
+                    e
+                ),
+            }
+        };
     }
 
     // Manage embedded resources
     cleanup_stale_files(&dirs.j4rs);
     sync_embedded_resources(&dirs.j4rs)?;
 
-    // Initialize JVM and PatchBukkit server
-    let jvm = initialize_jvm(&dirs.j4rs)?;
-    setup_patchbukkit_server(&jvm)?;
+    {
+        let (tx, rx) = oneshot::channel();
+        plugin
+            .command_tx
+            .send(JvmCommand::Initialize {
+                j4rs_path: dirs.j4rs,
+                respond_to: tx,
+            })
+            .await
+            .map_err(|e| format!("Failed to send command to initialize J4RS: {}", e))?;
+        rx.await
+            .map_err(|e| format!("Unable to receive response from J4RS initialization: {}", e))?
+            .map_err(|e| format!("Failed to initialize all plugins: {}", e))?;
+    }
 
-    let i = jvm
-        .create_instance("org.patchbukkit.NativeCallbacks", InvocationArg::empty())
-        .map_err(|err| err.to_string())?;
-    let r = jvm.init_callback_channel(&i).unwrap();
+    {
+        let (tx, rx) = oneshot::channel();
+        plugin
+            .command_tx
+            .send(JvmCommand::InstantiateAllPlugins { respond_to: tx })
+            .await
+            .map_err(|e| format!("Failed to send command to instantiate plugins: {}", e))?;
+        rx.await
+            .map_err(|e| format!("Unable to receive response from instantiate plugins: {}", e))?
+            .map_err(|e| format!("Failed to instantiate all plugins: {}", e))?;
+    }
 
-    let plugin_manager = plugin.plugin_manager.clone();
-    tokio::spawn(async move {
-        loop {
-            match r.rx().recv() {
-                Ok(ret) => {
-                    let result: anyhow::Result<()> = (async || {
-                        let jvm = match Jvm::attach_thread() {
-                            Ok(jvm) => jvm,
-                            Err(e) => {
-                                log::error!("Failed to attach callback thread to JVM: {}", e);
-                                return Ok(());
-                            }
-                        };
-
-                        let result = jvm.invoke(&ret, "getCallbackName", InvocationArg::empty())?;
-
-                        let callback_name: String = jvm.to_rust(result)?;
-                        match callback_name.as_str() {
-                            "REGISTER_EVENT_CALLBACK" => {
-                                let listener_name: String = jvm.to_rust(jvm.invoke(
-                                    &ret,
-                                    "getArg",
-                                    &[&InvocationArg::try_from(0_i32)?],
-                                )?)?;
-                                let listener = jvm.cast(
-                                    &jvm.invoke(
-                                        &ret,
-                                        "getArg",
-                                        &[&InvocationArg::try_from(1_i32)?],
-                                    )?,
-                                    "org.bukkit.event.Listener",
-                                )?;
-                                let plugin_instance = jvm.cast(
-                                    &jvm.invoke(
-                                        &ret,
-                                        "getArg",
-                                        &[&InvocationArg::try_from(2_i32)?],
-                                    )?,
-                                    "org.bukkit.plugin.Plugin",
-                                )?;
-                                let plugin_name: String = jvm.to_rust(jvm.invoke(
-                                    &plugin_instance,
-                                    "getName",
-                                    InvocationArg::empty(),
-                                )?)?;
-
-                                match plugin_manager.lock().await.plugins.get_mut(&plugin_name) {
-                                    Some(rust_plugin) => {
-                                        rust_plugin.listeners.insert(listener_name, listener)
-                                    }
-                                    None => todo!(),
-                                };
-                            }
-                            _ => log::warn!("Received unknown callback: {:?}", callback_name),
-                        }
-
-                        return Ok(());
-                    })()
-                    .await;
-
-                    result.unwrap();
-                }
-                Err(e) => {
-                    log::error!("Callback channel closed: {}", e);
-                    break;
-                }
-            }
-        }
-    });
-
-    plugin
-        .plugin_manager
-        .lock()
-        .await
-        .load_all_plugins(&jvm)
-        .map_err(|err| format!("Failed to load PatchBukkit plugins: {}", err))?;
-
-    plugin
-        .plugin_manager
-        .lock()
-        .await
-        .enable_all_plugins(&jvm)
-        .map_err(|err| format!("Failed to enable PatchBukkit plugins: {}", err))?;
+    {
+        let (tx, rx) = oneshot::channel();
+        plugin
+            .command_tx
+            .send(JvmCommand::EnableAllPlugins { respond_to: tx })
+            .await
+            .map_err(|e| format!("Failed to send command to enable all plugins: {}", e))?;
+        rx.await
+            .map_err(|e| format!("Unable to receive response from enable all plugins: {}", e))?
+            .map_err(|e| format!("Failed to enable all plugins: {}", e))?;
+    };
 
     Ok(())
 }
@@ -177,21 +147,29 @@ async fn on_unload_inner(
     plugin: &mut PatchBukkitPlugin,
     _server: Arc<Context>,
 ) -> Result<(), String> {
-    let jvm = Jvm::attach_thread().map_err(|e| format!("Failed to attach thread to JVM: {}", e))?;
+    {
+        let (tx, rx) = oneshot::channel();
+        plugin
+            .command_tx
+            .send(JvmCommand::DisableAllPlugins { respond_to: tx })
+            .await
+            .map_err(|e| format!("Failed to send command to disable all plugins: {}", e))?;
+        rx.await
+            .map_err(|e| format!("Unable to receive response from disable all plugins: {}", e))?
+            .map_err(|e| format!("Failed to disable all plugins: {}", e))?;
+    }
 
-    plugin
-        .plugin_manager
-        .lock()
-        .await
-        .disable_all_plugins(&jvm)
-        .map_err(|err| format!("Failed to disable PatchBukkit plugins: {}", err))?;
-
-    plugin
-        .plugin_manager
-        .lock()
-        .await
-        .unload_all_plugins()
-        .map_err(|err| format!("Failed to unload PatchBukkit plugins: {}", err))?;
+    {
+        let (tx, rx) = oneshot::channel();
+        plugin
+            .command_tx
+            .send(JvmCommand::Shutdown { respond_to: tx })
+            .await
+            .map_err(|e| format!("Failed to send command to shutdown: {}", e))?;
+        rx.await
+            .map_err(|e| format!("Unable to receive response from shutdown: {}", e))?
+            .map_err(|e| format!("Failed to shutdown: {}", e))?;
+    }
 
     Ok(())
 }
@@ -208,14 +186,20 @@ async fn on_unload(&mut self, server: Arc<Context>) -> Result<(), String> {
 
 #[plugin_impl]
 pub struct PatchBukkitPlugin {
-    plugin_manager: Arc<Mutex<PluginManager>>,
+    pub command_tx: mpsc::Sender<JvmCommand>,
 }
 
 impl PatchBukkitPlugin {
     pub fn new() -> Self {
-        PatchBukkitPlugin {
-            plugin_manager: Arc::new(Mutex::new(PluginManager::new())),
-        }
+        let (tx, rx) = mpsc::channel(100);
+        let command_tx = tx.clone();
+        std::thread::Builder::new()
+            .name("patchbukkit-jvm-worker".to_string())
+            .spawn(move || {
+                JvmWorker::new(command_tx.clone(), rx).attach_thread();
+            })
+            .unwrap();
+        PatchBukkitPlugin { command_tx: tx }
     }
 }
 

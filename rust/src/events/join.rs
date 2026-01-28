@@ -6,19 +6,19 @@ use pumpkin::{
 };
 use pumpkin_api_macros::with_runtime;
 use pumpkin_util::text::{TextComponent, color::NamedColor};
-use tokio::sync::Mutex;
+use tokio::sync::mpsc;
 
-use crate::plugin::manager::PluginManager;
+use crate::java::jvm::commands::JvmCommand;
 
 pub struct PatchBukkitJoinHandler {
-    pub plugin_manager: Arc<Mutex<PluginManager>>,
+    pub command_tx: mpsc::Sender<JvmCommand>,
 }
 
 #[with_runtime(global)]
 impl EventHandler<PlayerJoinEvent> for PatchBukkitJoinHandler {
     fn handle_blocking<'a>(
         &self,
-        server: &Arc<Server>,
+        _server: &Arc<Server>,
         event: &'a mut PlayerJoinEvent,
     ) -> BoxFuture<'a, ()> {
         Box::pin(async {

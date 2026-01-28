@@ -1,16 +1,16 @@
 use std::sync::Arc;
 
 use pumpkin::plugin::{Context, EventPriority};
-use tokio::sync::Mutex;
+use tokio::sync::mpsc;
 
-use crate::{events::join::PatchBukkitJoinHandler, plugin::manager::PluginManager};
+use crate::{events::join::PatchBukkitJoinHandler, java::jvm::commands::JvmCommand};
 
 pub mod join;
 
-pub async fn register_handlers(plugin_manager: Arc<Mutex<PluginManager>>, server: &Arc<Context>) {
+pub async fn register_handlers(command_tx: mpsc::Sender<JvmCommand>, server: &Arc<Context>) {
     server
         .register_event(
-            Arc::new(PatchBukkitJoinHandler { plugin_manager }),
+            Arc::new(PatchBukkitJoinHandler { command_tx }),
             EventPriority::Highest,
             true,
         )

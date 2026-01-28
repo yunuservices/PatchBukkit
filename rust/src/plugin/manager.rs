@@ -181,7 +181,7 @@ impl PluginManager {
         Ok(())
     }
 
-    pub fn load_all_plugins(&mut self, jvm: &Jvm) -> Result<()> {
+    pub fn instantiate_all_plugins(&mut self, jvm: &Jvm) -> Result<()> {
         for (_plugin_name, plugin) in &mut self.plugins {
             let result = jvm.invoke_static(
                 "org.patchbukkit.loader.PatchBukkitPluginLoader",
