@@ -16,6 +16,7 @@ use java::{
     jvm::{initialize_jvm, setup_patchbukkit_server},
     resources::{cleanup_stale_files, sync_embedded_resources},
 };
+use tokio::sync::Mutex;
 
 use crate::{
     events::register_handlers, java::jar::read_configs_from_jar, plugin::manager::PluginManager,
@@ -25,7 +26,7 @@ async fn on_load_inner(plugin: &mut PatchBukkitPlugin, server: Arc<Context>) -> 
     server.init_log();
     log::info!("Starting PatchBukkit");
 
-    register_handlers(&server).await;
+    register_handlers(plugin.plugin_manager.clone(), &server).await;
 
     // Setup directories
     let dirs = setup_directories(&server)?;
@@ -36,7 +37,7 @@ async fn on_load_inner(plugin: &mut PatchBukkitPlugin, server: Arc<Context>) -> 
         match read_configs_from_jar(jar_path) {
             Ok(configs) => match configs {
                 (Some(paper_plugin_config), spigot @ _) => {
-                    match plugin.plugin_manager.load_paper_plugin(
+                    match plugin.plugin_manager.lock().await.load_paper_plugin(
                         jar_path,
                         &paper_plugin_config,
                         &spigot,
@@ -46,7 +47,12 @@ async fn on_load_inner(plugin: &mut PatchBukkitPlugin, server: Arc<Context>) -> 
                     }
                 }
                 (None, Some(spigot)) => {
-                    match plugin.plugin_manager.load_spigot_plugin(jar_path, &spigot) {
+                    match plugin
+                        .plugin_manager
+                        .lock()
+                        .await
+                        .load_spigot_plugin(jar_path, &spigot)
+                    {
                         Ok(_) => {
                             log::info!("Loaded Spigot plugin from JAR: {}", jar_path.display())
                         }
@@ -80,20 +86,20 @@ async fn on_load_inner(plugin: &mut PatchBukkitPlugin, server: Arc<Context>) -> 
         .map_err(|err| err.to_string())?;
     let r = jvm.init_callback_channel(&i).unwrap();
 
-    let plugins = plugin.plugin_manager.plugins.clone();
-    std::thread::spawn(move || {
-        let jvm = match Jvm::attach_thread() {
-            Ok(jvm) => jvm,
-            Err(e) => {
-                log::error!("Failed to attach callback thread to JVM: {}", e);
-                return;
-            }
-        };
-
+    let plugin_manager = plugin.plugin_manager.clone();
+    tokio::spawn(async move {
         loop {
             match r.rx().recv() {
                 Ok(ret) => {
-                    let result: anyhow::Result<()> = (|| {
+                    let result: anyhow::Result<()> = (async || {
+                        let jvm = match Jvm::attach_thread() {
+                            Ok(jvm) => jvm,
+                            Err(e) => {
+                                log::error!("Failed to attach callback thread to JVM: {}", e);
+                                return Ok(());
+                            }
+                        };
+
                         let result = jvm.invoke(&ret, "getCallbackName", InvocationArg::empty())?;
 
                         let callback_name: String = jvm.to_rust(result)?;
@@ -126,7 +132,7 @@ async fn on_load_inner(plugin: &mut PatchBukkitPlugin, server: Arc<Context>) -> 
                                     InvocationArg::empty(),
                                 )?)?;
 
-                                match plugins.lock().unwrap().get_mut(&plugin_name) {
+                                match plugin_manager.lock().await.plugins.get_mut(&plugin_name) {
                                     Some(rust_plugin) => {
                                         rust_plugin.listeners.insert(listener_name, listener)
                                     }
@@ -137,7 +143,8 @@ async fn on_load_inner(plugin: &mut PatchBukkitPlugin, server: Arc<Context>) -> 
                         }
 
                         return Ok(());
-                    })();
+                    })()
+                    .await;
 
                     result.unwrap();
                 }
@@ -151,11 +158,15 @@ async fn on_load_inner(plugin: &mut PatchBukkitPlugin, server: Arc<Context>) -> 
 
     plugin
         .plugin_manager
+        .lock()
+        .await
         .load_all_plugins(&jvm)
         .map_err(|err| format!("Failed to load PatchBukkit plugins: {}", err))?;
 
     plugin
         .plugin_manager
+        .lock()
+        .await
         .enable_all_plugins(&jvm)
         .map_err(|err| format!("Failed to enable PatchBukkit plugins: {}", err))?;
 
@@ -170,11 +181,15 @@ async fn on_unload_inner(
 
     plugin
         .plugin_manager
+        .lock()
+        .await
         .disable_all_plugins(&jvm)
         .map_err(|err| format!("Failed to disable PatchBukkit plugins: {}", err))?;
 
     plugin
         .plugin_manager
+        .lock()
+        .await
         .unload_all_plugins()
         .map_err(|err| format!("Failed to unload PatchBukkit plugins: {}", err))?;
 
@@ -193,13 +208,13 @@ async fn on_unload(&mut self, server: Arc<Context>) -> Result<(), String> {
 
 #[plugin_impl]
 pub struct PatchBukkitPlugin {
-    plugin_manager: PluginManager,
+    plugin_manager: Arc<Mutex<PluginManager>>,
 }
 
 impl PatchBukkitPlugin {
     pub fn new() -> Self {
         PatchBukkitPlugin {
-            plugin_manager: PluginManager::new(),
+            plugin_manager: Arc::new(Mutex::new(PluginManager::new())),
         }
     }
 }
