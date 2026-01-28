@@ -10,7 +10,7 @@ public class CallbackValue {
         this.args = args;
     }
 
-    public Object getArg(int arg) {
+    public Object getArg(Integer arg) {
         return args[arg];
     }
 

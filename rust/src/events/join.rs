@@ -7,16 +7,21 @@ use pumpkin::{
 use pumpkin_api_macros::with_runtime;
 use pumpkin_util::text::{TextComponent, color::NamedColor};
 
-pub struct PatchBukkitJoinHandler;
+use crate::plugin::manager::Plugins;
+
+pub struct PatchBukkitJoinHandler {
+    pub plugins: Plugins,
+}
 
 #[with_runtime(global)]
 impl EventHandler<PlayerJoinEvent> for PatchBukkitJoinHandler {
     fn handle_blocking<'a>(
         &self,
-        _server: &Arc<Server>,
+        server: &Arc<Server>,
         event: &'a mut PlayerJoinEvent,
     ) -> BoxFuture<'a, ()> {
         Box::pin(async {
+            for (_plugin_name, plugin) in self.plugins.lock().unwrap().iter_mut() {}
             event.join_message =
                 TextComponent::text(format!("Welcome, {}!", event.player.gameprofile.name))
                     .color_named(NamedColor::Green);

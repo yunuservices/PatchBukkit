@@ -56,10 +56,12 @@ pub struct Plugin {
     /// Data folder for this plugin
     pub data_folder: PathBuf,
     pub instance: Option<Instance>,
+    pub listeners: HashMap<String, Instance>,
 }
 
+pub type Plugins = Arc<Mutex<HashMap<String, Plugin>>>;
 pub struct PluginManager {
-    plugins: Arc<Mutex<HashMap<String, Plugin>>>,
+    pub plugins: Plugins,
 }
 
 impl PluginManager {
@@ -100,6 +102,7 @@ impl PluginManager {
             data_folder: jar_path.as_ref().parent().unwrap().join("data"),
             path: jar_path.as_ref().to_path_buf(),
             instance: None,
+            listeners: HashMap::new(),
         };
 
         self.add_plugin(plugin);
@@ -124,6 +127,7 @@ impl PluginManager {
             data_folder: jar_path.as_ref().parent().unwrap().join("data"),
             path: jar_path.as_ref().to_path_buf(),
             instance: None,
+            listeners: HashMap::new(),
         };
 
         self.add_plugin(plugin);

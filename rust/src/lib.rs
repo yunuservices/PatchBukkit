@@ -80,6 +80,7 @@ async fn on_load_inner(plugin: &mut PatchBukkitPlugin, server: Arc<Context>) -> 
         .map_err(|err| err.to_string())?;
     let r = jvm.init_callback_channel(&i).unwrap();
 
+    let plugins = plugin.plugin_manager.plugins.clone();
     std::thread::spawn(move || {
         let jvm = match Jvm::attach_thread() {
             Ok(jvm) => jvm,
@@ -92,22 +93,53 @@ async fn on_load_inner(plugin: &mut PatchBukkitPlugin, server: Arc<Context>) -> 
         loop {
             match r.rx().recv() {
                 Ok(ret) => {
-                    let _: anyhow::Result<()> = (|| {
+                    let result: anyhow::Result<()> = (|| {
                         let result = jvm.invoke(&ret, "getCallbackName", InvocationArg::empty())?;
 
                         let callback_name: String = jvm.to_rust(result)?;
                         match callback_name.as_str() {
                             "REGISTER_EVENT_CALLBACK" => {
-                                let listener =
-                                    jvm.invoke(&ret, "getArg", &[&InvocationArg::try_from(0)?])?;
-                                let plugin =
-                                    jvm.invoke(&ret, "getArg", &[&InvocationArg::try_from(1)?])?;
+                                let listener_name: String = jvm.to_rust(jvm.invoke(
+                                    &ret,
+                                    "getArg",
+                                    &[&InvocationArg::try_from(0_i32)?],
+                                )?)?;
+                                let listener = jvm.cast(
+                                    &jvm.invoke(
+                                        &ret,
+                                        "getArg",
+                                        &[&InvocationArg::try_from(1_i32)?],
+                                    )?,
+                                    "org.bukkit.event.Listener",
+                                )?;
+                                let plugin_instance = jvm.cast(
+                                    &jvm.invoke(
+                                        &ret,
+                                        "getArg",
+                                        &[&InvocationArg::try_from(2_i32)?],
+                                    )?,
+                                    "org.bukkit.plugin.Plugin",
+                                )?;
+                                let plugin_name: String = jvm.to_rust(jvm.invoke(
+                                    &plugin_instance,
+                                    "getName",
+                                    InvocationArg::empty(),
+                                )?)?;
+
+                                match plugins.lock().unwrap().get_mut(&plugin_name) {
+                                    Some(rust_plugin) => {
+                                        rust_plugin.listeners.insert(listener_name, listener)
+                                    }
+                                    None => todo!(),
+                                };
                             }
                             _ => log::warn!("Received unknown callback: {:?}", callback_name),
                         }
 
                         return Ok(());
                     })();
+
+                    result.unwrap();
                 }
                 Err(e) => {
                     log::error!("Callback channel closed: {}", e);
