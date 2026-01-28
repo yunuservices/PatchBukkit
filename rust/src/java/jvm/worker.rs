@@ -132,19 +132,15 @@ impl JvmWorker {
         let result = jvm.invoke(&instance, "getCallbackName", InvocationArg::empty())?;
 
         let callback_name: String = jvm.to_rust(result)?;
+
         match callback_name.as_str() {
             "REGISTER_EVENT_CALLBACK" => {
-                let listener_name: String = jvm.to_rust(jvm.invoke(
-                    &instance,
-                    "getArg",
-                    &[&InvocationArg::try_from(0_i32)?],
-                )?)?;
                 let listener = jvm.cast(
-                    &jvm.invoke(&instance, "getArg", &[&InvocationArg::try_from(1_i32)?])?,
+                    &jvm.invoke(&instance, "getArg", &[&InvocationArg::try_from(0_i32)?])?,
                     "org.bukkit.event.Listener",
                 )?;
                 let plugin_instance = jvm.cast(
-                    &jvm.invoke(&instance, "getArg", &[&InvocationArg::try_from(2_i32)?])?,
+                    &jvm.invoke(&instance, "getArg", &[&InvocationArg::try_from(1_i32)?])?,
                     "org.bukkit.plugin.Plugin",
                 )?;
                 let plugin_name: String = jvm.to_rust(jvm.invoke(
@@ -154,7 +150,9 @@ impl JvmWorker {
                 )?)?;
 
                 match self.plugin_manager.plugins.get_mut(&plugin_name) {
-                    Some(rust_plugin) => rust_plugin.listeners.insert(listener_name, listener),
+                    Some(rust_plugin) => rust_plugin
+                        .listeners
+                        .insert("listener_name".to_string(), listener),
                     None => todo!(),
                 };
             }
