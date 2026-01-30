@@ -3,6 +3,7 @@ package org.patchbukkit.command;
 import java.util.Set;
 import java.util.UUID;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Server;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.conversations.Conversation;
@@ -14,6 +15,7 @@ import org.bukkit.plugin.Plugin;
 import org.checkerframework.checker.units.qual.m;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.patchbukkit.PatchBukkitServer;
 
 import net.kyori.adventure.text.Component;
 
@@ -43,8 +45,7 @@ public class PatchBukkitConsoleCommandSender implements ConsoleCommandSender {
 
     @Override
     public @NotNull Server getServer() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getServer'");
+        return Bukkit.getServer();
     }
 
     @Override
@@ -132,8 +133,7 @@ public class PatchBukkitConsoleCommandSender implements ConsoleCommandSender {
 
     @Override
     public boolean isOp() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'isOp'");
+        return true;
     }
 
     @Override

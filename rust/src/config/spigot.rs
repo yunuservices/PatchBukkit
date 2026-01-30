@@ -8,8 +8,10 @@ pub const SPIGOT_PLUGIN_CONFIG: &str = "plugin.yml";
 #[derive(Debug, Deserialize, Default, Clone, PartialEq)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum LoadOrder {
+    #[serde(alias = "startup", alias = "Startup")]
     Startup,
     #[default]
+    #[serde(alias = "postworld", alias = "Postworld")]
     Postworld,
 }
 

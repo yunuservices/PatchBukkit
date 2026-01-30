@@ -87,6 +87,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.patchbukkit.command.PatchBukkitCommandMap;
 import org.patchbukkit.command.PatchBukkitConsoleCommandSender;
+import org.patchbukkit.scheduler.PatchBukkitScheduler;
 
 @SuppressWarnings("removal")
 public class PatchBukkitServer implements Server {
@@ -95,6 +96,8 @@ public class PatchBukkitServer implements Server {
         io.papermc.paper.ServerBuildInfo.buildInfo().brandName();
     private final String bukkitVersion = Versioning.getBukkitVersion();
     private final CommandMap commandMap = new PatchBukkitCommandMap();
+    private final BukkitScheduler scheduler = new PatchBukkitScheduler();
+
 
     private final Map<UUID, Player> onlinePlayers = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<String, Player> onlinePlayersByName = new java.util.concurrent.ConcurrentHashMap<>();
@@ -162,10 +165,7 @@ public class PatchBukkitServer implements Server {
 
     @Override
     public @NotNull String getVersion() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'getVersion'"
-        );
+        return "1.21.11";
     }
 
     @Override
@@ -462,10 +462,7 @@ public class PatchBukkitServer implements Server {
 
     @Override
     public @NotNull BukkitScheduler getScheduler() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'getScheduler'"
-        );
+        return this.scheduler;
     }
 
     @Override
@@ -1578,10 +1575,7 @@ public class PatchBukkitServer implements Server {
 
     @Override
     public boolean suggestPlayerNamesWhenNullTabCompletions() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'suggestPlayerNamesWhenNullTabCompletions'"
-        );
+        return true;
     }
 
     @Override

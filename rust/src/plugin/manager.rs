@@ -6,7 +6,15 @@ use std::{
 
 use anyhow::Result;
 use j4rs::{Instance, InvocationArg, Jvm};
-use pumpkin::{command::tree::CommandTree, plugin::Context, server::Server};
+use pumpkin::{
+    command::{
+        tree::{
+            CommandTree,
+            builder::{argument, literal},
+        },
+    },
+    plugin::Context,
+};
 use pumpkin_util::permission::{Permission, PermissionDefault};
 use tokio::{runtime::Handle, sync::mpsc};
 
@@ -333,18 +341,50 @@ impl PluginManager {
                         ],
                     )?;
                 }
-                let node =
+                let j_sender = jvm
+                    .invoke_static(
+                        "org.bukkit.Bukkit",
+                        "getConsoleSender",
+                        InvocationArg::empty(),
+                    )
+                    .map_err(|e| e.to_string())
+                    .unwrap();
+
+                // Make the tab working, at least the first thingy
+                let dispatch_result = jvm
+                    .invoke(
+                        &command_map,
+                        "tabComplete",
+                        &[
+                            InvocationArg::from(j_sender),
+                            InvocationArg::try_from(format!("{} ", cmd_name)).unwrap(),
+                        ],
+                    )
+                    .unwrap();
+
+                let tab_list: Vec<String> = jvm.to_rust(dispatch_result).unwrap();
+
+                let mut node =
                     CommandTree::new([cmd_name], cmd_data.description.clone().unwrap_or_default())
                         .execute(JavaCommandExecutor {
                             cmd_name: cmd_name.clone(),
                             command_tx: command_tx.clone(),
                             command: j_plugin_cmd.clone(),
                         });
-                let permission = if let Some(perm) = cmd_data.permission.clone() {
-                    perm
-                } else {
-                    format!("patchbukkit:{}", cmd_name) // TODO
-                };
+                for tab in tab_list {
+                    node = node.then(literal(tab).execute(JavaCommandExecutor {
+                        cmd_name: cmd_name.clone(),
+                        command_tx: command_tx.clone(),
+                        command: j_plugin_cmd.clone(),
+                    }));
+                }
+                // TODO
+                // let permission = if let Some(perm) = cmd_data.permission.clone() {
+                //     perm
+                // } else {
+                //     format!("patchbukkit:{}", cmd_name) // TODO
+                // };
+                let permission = format!("patchbukkit:{}", cmd_name);
 
                 futures::executor::block_on(async {
                     server
