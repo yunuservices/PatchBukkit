@@ -188,6 +188,31 @@ impl JvmWorker {
                                 )
                                 .map_err(|e| format!("Failed to create player instance: {}", e))
                                 .unwrap();
+
+                            let player_permission_level = player.permission_lvl.load();
+                            if player_permission_level
+                                >= self
+                                    .context
+                                    .as_ref()
+                                    .unwrap()
+                                    .server
+                                    .basic_config
+                                    .op_permission_level
+                            {
+                                jvm.invoke(
+                                    &j_player,
+                                    "setOp",
+                                    &[InvocationArg::try_from(true)
+                                        .unwrap()
+                                        .into_primitive()
+                                        .unwrap()],
+                                )
+                                .map_err(|e| {
+                                    format!("Failed to give operator status to new player: {}", e)
+                                })
+                                .unwrap();
+                            };
+
                             let patch_server = jvm
                                 .cast(&server_instance, "org.patchbukkit.PatchBukkitServer")
                                 .unwrap();

@@ -36,6 +36,8 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.InventoryView.Property;
+import org.bukkit.permissions.PermissibleBase;
+import org.bukkit.permissions.Permission;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MainHand;
 import org.bukkit.inventory.Merchant;
@@ -61,10 +63,43 @@ import net.kyori.adventure.util.TriState;
 public class PatchBukkitHumanEntity
     extends PatchBukkitLivingEntity
     implements HumanEntity {
+    private boolean op;
+    protected final PermissibleBase perm = new PermissibleBase(this);
 
     public PatchBukkitHumanEntity(UUID uuid,
         String name) {
         super(uuid, name);
+    }
+
+    @Override
+    public boolean isOp() {
+        return this.op;
+    }
+
+    @Override
+    public void setOp(boolean value) {
+        this.op = value;
+        this.perm.recalculatePermissions();
+    }
+
+    @Override
+    public boolean isPermissionSet(String name) {
+        return this.perm.isPermissionSet(name);
+    }
+
+    @Override
+    public boolean isPermissionSet(Permission perm) {
+        return this.perm.isPermissionSet(perm);
+    }
+
+    @Override
+    public boolean hasPermission(String name) {
+        return this.perm.hasPermission(name);
+    }
+
+    @Override
+    public boolean hasPermission(Permission perm) {
+        return this.perm.hasPermission(perm);
     }
 
     @Override
