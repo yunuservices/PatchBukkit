@@ -3,8 +3,12 @@ package org.patchbukkit;
 import io.papermc.paper.plugin.PermissionManager;
 import io.papermc.paper.plugin.configuration.PluginMeta;
 import java.io.File;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.bukkit.Server;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventPriority;
@@ -18,43 +22,39 @@ import org.jspecify.annotations.NonNull;
 
 @SuppressWarnings("removal")
 public class PatchBukkitPluginManager implements PluginManager {
-
-    final PatchBukkitEventManager patchBukkitEventManager;
+    private final Server server;
+    private final PatchBukkitEventManager eventManager;
+    private final Map<String, Plugin> plugins = new ConcurrentHashMap<>();
+    private final Map<String, Permission> permissions = new HashMap<>();
 
     public PatchBukkitPluginManager(Server server) {
-        this.patchBukkitEventManager = new PatchBukkitEventManager(server);
+        this.server = server;
+        this.eventManager = new PatchBukkitEventManager(server);
     }
 
     @Override
     public void registerInterface(@NotNull Class<? extends PluginLoader> loader)
         throws IllegalArgumentException {}
 
-    @Override
+   @Override
     public @Nullable Plugin getPlugin(@NotNull String name) {
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'getPlugin'"
-        );
+        return plugins.get(name);
     }
 
-    @Override
+   @Override
     public @NotNull Plugin[] getPlugins() {
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'getPlugins'"
-        );
+        return plugins.values().toArray(new Plugin[0]);
     }
 
     @Override
     public boolean isPluginEnabled(@NotNull String name) {
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'isPluginEnabled'"
-        );
+        Plugin plugin = getPlugin(name);
+        return plugin != null && plugin.isEnabled();
     }
 
     @Override
     public boolean isPluginEnabled(@Nullable Plugin plugin) {
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'isPluginEnabled'"
-        );
+        return plugin != null && plugins.containsValue(plugin) && plugin.isEnabled();
     }
 
     @Override
@@ -95,15 +95,12 @@ public class PatchBukkitPluginManager implements PluginManager {
 
     @Override
     public void callEvent(@NotNull Event event) throws IllegalStateException {
-        this.patchBukkitEventManager.callEvent(event);
+        this.eventManager.callEvent(event);
     }
 
     @Override
-    public void registerEvents(
-        @NotNull Listener listener,
-        @NotNull Plugin plugin
-    ) {
-        this.patchBukkitEventManager.registerEvents(listener, plugin);
+    public void registerEvents(@NotNull Listener listener, @NotNull Plugin plugin) {
+        this.eventManager.registerEvents(listener, plugin);
     }
 
     @Override
@@ -114,7 +111,7 @@ public class PatchBukkitPluginManager implements PluginManager {
         @NotNull EventExecutor executor,
         @NotNull Plugin plugin
     ) {
-        this.patchBukkitEventManager.registerEvent(
+        this.eventManager.registerEvent(
             event,
             listener,
             priority,
@@ -132,7 +129,7 @@ public class PatchBukkitPluginManager implements PluginManager {
         @NotNull Plugin plugin,
         boolean ignoreCancelled
     ) {
-        this.patchBukkitEventManager.registerEvent(
+        this.eventManager.registerEvent(
             event,
             listener,
             priority,
@@ -144,30 +141,30 @@ public class PatchBukkitPluginManager implements PluginManager {
 
     @Override
     public void enablePlugin(@NotNull Plugin plugin) {
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'enablePlugin'"
-        );
+        if (!plugin.isEnabled()) {
+            try {
+                plugin.getPluginLoader().enablePlugin(plugin);
+            } catch (Throwable ex) {
+                server.getLogger().severe("Error enabling " + plugin.getName() + ": " + ex.getMessage());
+            }
+        }
     }
 
     @Override
     public void disablePlugin(@NotNull Plugin plugin) {
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'disablePlugin'"
-        );
+        if (plugin.isEnabled()) {
+            plugin.getPluginLoader().disablePlugin(plugin);
+        }
     }
 
     @Override
     public @Nullable Permission getPermission(@NotNull String name) {
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'getPermission'"
-        );
+       return permissions.get(name);
     }
 
     @Override
     public void addPermission(@NotNull Permission perm) {
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'addPermission'"
-        );
+       permissions.put(perm.getName(), perm);
     }
 
     @Override

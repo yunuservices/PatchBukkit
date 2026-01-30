@@ -12,6 +12,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.net.InetAddress;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +48,7 @@ import org.bukkit.boss.BarFlag;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.boss.KeyedBossBar;
+import org.bukkit.command.Command;
 import org.bukkit.command.CommandException;
 import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
@@ -83,6 +85,8 @@ import org.bukkit.structure.StructureManager;
 import org.bukkit.util.CachedServerIcon;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.patchbukkit.command.PatchBukkitCommandMap;
+import org.patchbukkit.command.PatchBukkitConsoleCommandSender;
 
 @SuppressWarnings("removal")
 public class PatchBukkitServer implements Server {
@@ -90,8 +94,30 @@ public class PatchBukkitServer implements Server {
     private final String serverName =
         io.papermc.paper.ServerBuildInfo.buildInfo().brandName();
     private final String bukkitVersion = Versioning.getBukkitVersion();
+    private final CommandMap commandMap = new PatchBukkitCommandMap();
+
+    private final Map<UUID, Player> onlinePlayers = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, Player> onlinePlayersByName = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final Logger logger = Logger.getLogger("Minecraft");
+
+    /**
+     * Called from Rust when a player joins the Pumpkin server
+     */
+    public void registerPlayer(Player player) {
+        this.onlinePlayers.put(player.getUniqueId(), player);
+        this.onlinePlayersByName.put(player.getName().toLowerCase(), player);
+    }
+
+    /**
+     * Called from Rust when a player leaves
+     */
+    public void unregisterPlayer(UUID uuid) {
+        Player p = this.onlinePlayers.remove(uuid);
+        if (p != null) {
+            this.onlinePlayersByName.remove(p.getName().toLowerCase());
+        }
+    }
 
     @Override
     public void sendPluginMessage(
@@ -157,10 +183,7 @@ public class PatchBukkitServer implements Server {
 
     @Override
     public @NotNull Collection<? extends Player> getOnlinePlayers() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'getOnlinePlayers'"
-        );
+        return Collections.unmodifiableCollection(onlinePlayers.values());
     }
 
     @Override
@@ -403,18 +426,12 @@ public class PatchBukkitServer implements Server {
 
     @Override
     public @Nullable Player getPlayer(@NotNull String name) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'getPlayer'"
-        );
+        return onlinePlayersByName.get(name.toLowerCase());
     }
 
     @Override
     public @Nullable Player getPlayerExact(@NotNull String name) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'getPlayerExact'"
-        );
+        return onlinePlayersByName.get(name.toLowerCase());
     }
 
     @Override
@@ -425,12 +442,9 @@ public class PatchBukkitServer implements Server {
         );
     }
 
-    @Override
+   @Override
     public @Nullable Player getPlayer(@NotNull UUID id) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'getPlayer'"
-        );
+        return onlinePlayers.get(id);
     }
 
     @Override
@@ -634,10 +648,8 @@ public class PatchBukkitServer implements Server {
 
     @Override
     public @Nullable PluginCommand getPluginCommand(@NotNull String name) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'getPluginCommand'"
-        );
+        Command cmd = this.commandMap.getCommand(name);
+    return (cmd instanceof PluginCommand) ? (PluginCommand) cmd : null;
     }
 
     @Override
@@ -1002,10 +1014,7 @@ public class PatchBukkitServer implements Server {
 
     @Override
     public @NotNull ConsoleCommandSender getConsoleSender() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'getConsoleSender'"
-        );
+        return new PatchBukkitConsoleCommandSender();
     }
 
     @Override
@@ -1412,10 +1421,7 @@ public class PatchBukkitServer implements Server {
 
     @Override
     public @NotNull CommandMap getCommandMap() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'getCommandMap'"
-        );
+        return commandMap;
     }
 
     @Override

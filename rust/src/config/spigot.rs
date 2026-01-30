@@ -76,7 +76,7 @@ impl StringOrList {
 }
 
 /// The main plugin.yml configuration structure
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct SpigotPluginYml {
     // Required fields
     /// The name of your plugin

@@ -1,10 +1,14 @@
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::Result;
 use j4rs::Instance;
-use tokio::sync::oneshot;
+use pumpkin::{command::CommandSender, plugin::Context, server::Server};
+use tokio::sync::{mpsc, oneshot};
 
-use crate::events::Event;
+use crate::{events::Event, java::jvm::command_executor::SimpleCommandSender};
 
 pub enum LoadPluginResult {
     SuccessfullyLoadedSpigot,
@@ -30,6 +34,8 @@ pub enum JvmCommand {
     },
     InstantiateAllPlugins {
         respond_to: oneshot::Sender<Result<()>>,
+        server: Arc<Context>,
+        command_tx: mpsc::Sender<JvmCommand>,
     },
     EnableAllPlugins {
         respond_to: oneshot::Sender<Result<()>>,
@@ -43,5 +49,11 @@ pub enum JvmCommand {
     TriggerEvent {
         event: Event,
         respond_to: oneshot::Sender<Result<Event>>,
+    },
+    TriggerCommand {
+        cmd_name: String,
+        command_sender: SimpleCommandSender,
+        respond_to: oneshot::Sender<Result<Event>>,
+        command: Arc<Mutex<Instance>>,
     },
 }

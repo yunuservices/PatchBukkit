@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use pumpkin::plugin::Context;
+use pumpkin::{plugin::Context, server::Server};
 use pumpkin_api_macros::{plugin_impl, plugin_method};
 
 pub mod config;
@@ -120,7 +120,11 @@ async fn on_load_inner(plugin: &mut PatchBukkitPlugin, server: Arc<Context>) -> 
         let (tx, rx) = oneshot::channel();
         plugin
             .command_tx
-            .send(JvmCommand::InstantiateAllPlugins { respond_to: tx })
+            .send(JvmCommand::InstantiateAllPlugins {
+                respond_to: tx,
+                server: server.clone(),
+                command_tx: plugin.command_tx.clone(),
+            })
             .await
             .map_err(|e| format!("Failed to send command to instantiate plugins: {}", e))?;
         rx.await

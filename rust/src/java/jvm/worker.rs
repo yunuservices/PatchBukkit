@@ -1,7 +1,8 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::bail;
 use j4rs::{Instance, InvocationArg, Jvm, JvmBuilder};
+use pumpkin::{net::bedrock::play, server::Server};
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{
@@ -92,13 +93,20 @@ impl JvmWorker {
                         }
                     };
                 }
-                JvmCommand::InstantiateAllPlugins { respond_to } => {
+                JvmCommand::InstantiateAllPlugins {
+                    respond_to,
+                    server,
+                    command_tx,
+                } => {
                     let jvm = match self.jvm {
                         Some(ref jvm) => jvm,
                         None => &Jvm::attach_thread().unwrap(),
                     };
 
-                    let _ = respond_to.send(self.plugin_manager.instantiate_all_plugins(jvm));
+                    let _ = respond_to.send(
+                        self.plugin_manager
+                            .instantiate_all_plugins(jvm, &server, command_tx),
+                    );
                 }
                 JvmCommand::EnableAllPlugins { respond_to } => {
                     let jvm = match self.jvm {
@@ -128,10 +136,86 @@ impl JvmWorker {
 
                     match event {
                         Event::PlayerJoinEvent(player_join_event) => {
-                            // let player = jvm.create_instance("org.bukkit.entity.Player", &[]);
+                            let server_instance = jvm
+                                .invoke_static(
+                                    "org.bukkit.Bukkit",
+                                    "getServer",
+                                    InvocationArg::empty(),
+                                )
+                                .map_err(|e| format!("Failed to get server: {}", e))
+                                .unwrap();
+
+                            // let cloned_server_instance =
+                            //     jvm.clone_instance(&server_instance).unwrap();
+
+                            // let j_entity = jvm
+                            //     .create_instance(
+                            //         "org.patchbukkit.entity.PatchBukkitEntity",
+                            //         &[
+                            //             InvocationArg::from(cloned_server_instance),
+                            //             // InvocationArg::from(InvocationArg::empty()), // Placeholder for the actual NMS entity
+                            //         ],
+                            //     )
+                            //     .unwrap();
+                            // let cloned_server_instance =
+                            //     jvm.clone_instance(&server_instance).unwrap();
+
+                            let player = player_join_event.player;
+
+                            let j_uuid = jvm
+                                .invoke_static(
+                                    "java.util.UUID",
+                                    "fromString",
+                                    &[InvocationArg::try_from(player.gameprofile.id.to_string())
+                                        .unwrap()],
+                                )
+                                .map_err(|e| format!("Failed to create Java UUID: {}", e))
+                                .unwrap();
+
+                            let j_player = jvm
+                                .create_instance(
+                                    "org.patchbukkit.entity.PatchBukkitPlayer",
+                                    &[
+                                        InvocationArg::from(j_uuid),
+                                        InvocationArg::try_from(player.gameprofile.name.clone())
+                                            .unwrap(),
+                                    ],
+                                )
+                                .map_err(|e| format!("Failed to create player instance: {}", e))
+                                .unwrap();
+                            let patch_server = jvm
+                                .cast(&server_instance, "org.patchbukkit.PatchBukkitServer")
+                                .unwrap();
+
+                            jvm.invoke(
+                                &patch_server,
+                                "registerPlayer",
+                                &[InvocationArg::from(j_player)],
+                            )
+                            .unwrap();
                             // self.event_manager.call_event(&jvm, event)
                         }
                     }
+                }
+                JvmCommand::TriggerCommand {
+                    cmd_name,
+                    command_sender,
+                    respond_to,
+                    command,
+                } => {
+                    let jvm = match self.jvm {
+                        Some(ref jvm) => jvm,
+                        None => &Jvm::attach_thread().unwrap(),
+                    };
+                    self.plugin_manager
+                        .trigger_command(
+                            jvm,
+                            &cmd_name,
+                            command,
+                            command_sender,
+                            vec![cmd_name.clone()],
+                        )
+                        .unwrap();
                 }
             }
         }

@@ -17,25 +17,27 @@ pub struct PatchBukkitJoinHandler {
 impl EventHandler<PlayerJoinEvent> for PatchBukkitJoinHandler {
     fn handle_blocking<'a>(
         &self,
-        _server: &Arc<Server>,
+        server: &Arc<Server>,
         event: &'a mut PlayerJoinEvent,
     ) -> BoxFuture<'a, ()> {
-        let event: &mut PlayerJoinEvent = event;
+        let command_tx = self.command_tx.clone();
+        Box::pin(async move {
+            let event: &mut PlayerJoinEvent = event;
 
-        let (tx, rx) = oneshot::channel();
-        let sent_event = event.clone();
-        self.command_tx
-            .blocking_send(JvmCommand::TriggerEvent {
-                event: Event::PlayerJoinEvent(sent_event),
-                respond_to: tx,
-            })
-            .unwrap();
+            let (tx, rx) = oneshot::channel();
+            let sent_event = event.clone();
+            command_tx
+                .send(JvmCommand::TriggerEvent {
+                    event: Event::PlayerJoinEvent(sent_event),
+                    respond_to: tx,
+                })
+                .await
+                .unwrap();
 
-        match rx.await.unwrap().unwrap() {
-            Event::PlayerJoinEvent(player_join_event) => *event = player_join_event,
-            _ => unreachable!(),
-        };
-
-        Box::pin(async {})
+            // match rx.await.unwrap().unwrap() {
+            //     Event::PlayerJoinEvent(player_join_event) => *event = player_join_event,
+            //     _ => unreachable!(),
+            // };
+        })
     }
 }
