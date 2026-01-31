@@ -1176,14 +1176,14 @@ public class PatchBukkitPlayer
 
     @Override
     public boolean getAllowFlight() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getAllowFlight'");
+        return NativePatchBukkit.getAbilities(this.uuid).allowFlying();
     }
 
     @Override
     public void setAllowFlight(boolean flight) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setAllowFlight'");
+        var abilities = NativePatchBukkit.getAbilities(this.uuid);
+        abilities.withAllowFlying(flight);
+        NativePatchBukkit.setAbilities(this.uuid, abilities);
     }
 
     @Override
@@ -1260,8 +1260,9 @@ public class PatchBukkitPlayer
 
     @Override
     public void setFlying(boolean value) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setFlying'");
+        var abilities = NativePatchBukkit.getAbilities(this.getUniqueId());
+        abilities.withFlying(value);
+        NativePatchBukkit.setAbilities(this.getUniqueId(), abilities);
     }
 
     @Override

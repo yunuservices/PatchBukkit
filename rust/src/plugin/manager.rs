@@ -7,16 +7,11 @@ use std::{
 use anyhow::Result;
 use j4rs::{Instance, InvocationArg, Jvm};
 use pumpkin::{
-    command::{
-        tree::{
-            CommandTree,
-            builder::{argument, literal},
-        },
-    },
+    command::tree::{CommandTree, builder::literal},
     plugin::Context,
 };
 use pumpkin_util::permission::{Permission, PermissionDefault};
-use tokio::{runtime::Handle, sync::mpsc};
+use tokio::sync::mpsc;
 
 use crate::{
     config::{
