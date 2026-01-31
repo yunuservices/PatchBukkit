@@ -9,6 +9,7 @@ pub mod events;
 pub mod location;
 pub mod message;
 pub mod utils;
+pub mod world;
 
 static CALLBACK_CONTEXT: OnceLock<CallbackContext> = OnceLock::new();
 

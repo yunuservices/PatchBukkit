@@ -1,17 +1,10 @@
-use std::ffi::c_char;
+use std::ffi::{CString, c_char};
 
 use pumpkin::command::args::entities::{EntitySelectorType, TargetSelector};
 
 use crate::java::native_callbacks::{CALLBACK_CONTEXT, utils::get_string};
 
-#[repr(C)]
-pub struct Vec3FFI {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
-}
-
-pub extern "C" fn rust_get_location(uuid_ptr: *const c_char, out: *mut Vec3FFI) -> bool {
+pub extern "C" fn rust_get_world(uuid_ptr: *const c_char) -> *const c_char {
     let uuid_str = get_string(uuid_ptr);
     if let Some(ctx) = CALLBACK_CONTEXT.get() {
         let uuid = uuid::Uuid::parse_str(&uuid_str).unwrap();
@@ -21,18 +14,14 @@ pub extern "C" fn rust_get_location(uuid_ptr: *const c_char, out: *mut Vec3FFI) 
             .select_entities(&TargetSelector::new(EntitySelectorType::Uuid(uuid)), None);
         if entity.len() == 1 {
             let entity = entity.first().unwrap().get_entity();
-            let position =
-                tokio::task::block_in_place(|| ctx.runtime.block_on(async { entity.pos.load() }));
+            let world = entity.world.load();
 
-            unsafe {
-                (*out).x = position.x;
-                (*out).y = position.y;
-                (*out).z = position.z;
-            }
-
-            return true;
+            let cstring = match CString::new(world.dimension.minecraft_name) {
+                Ok(s) => s,
+                Err(_) => return std::ptr::null(),
+            };
         }
     }
 
-    false
+    std::ptr::null()
 }
