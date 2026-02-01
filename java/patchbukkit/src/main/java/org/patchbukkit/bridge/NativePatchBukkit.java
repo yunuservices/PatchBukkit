@@ -182,7 +182,9 @@ public class NativePatchBukkit {
         long registerEventAddr,
         long getAbilitiesAddr,
         long setAbilitiesAddr,
-        long getLocationAddr
+        long getLocationAddr,
+        long freeStringAddr,
+        long getWorldAddr
     ) {
         // void rust_send_message(const char* uuid, const char* message)
         sendMessageNative = LINKER.downcallHandle(

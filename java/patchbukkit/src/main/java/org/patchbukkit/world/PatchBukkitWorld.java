@@ -33,6 +33,17 @@ public class PatchBukkitWorld
     extends PatchBukkitRegionAccessor
     implements World
 {
+    private static final Map<UUID, PatchBukkitWorld> instances = new HashMap<>();
+    private UUID uuid;
+
+    private PatchBukkitWorld(UUID uuid) {
+        this.uuid = uuid;
+    }
+
+    public static PatchBukkitWorld getOrCreate(UUID uuid) {
+        return instances.computeIfAbsent(uuid, PatchBukkitWorld::new);
+    }
+
 
     @Override
     public boolean isVoidDamageEnabled() {
