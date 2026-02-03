@@ -162,7 +162,6 @@ pub fn setup_protobufs(base: PathBuf) {
     config.service_generator(Box::new(generator));
     config.compile_protos(&paths, &[proto_path]).unwrap();
 
-    // Generate the shared initialization file
     let out_dir = std::env::var("OUT_DIR").unwrap();
     let init_path = PathBuf::from(&out_dir).join("ffi_init.rs");
 

@@ -15,7 +15,6 @@ public class NativePatchBukkit {
     private static final Linker LINKER = Linker.nativeLinker();
 
     private static MethodHandle sendMessageNative;
-    private static MethodHandle registerEventNative;
     private static MethodHandle callEventNative;
     private static MethodHandle getLocationNative;
     private static MethodHandle getWorldNative;
@@ -184,7 +183,6 @@ public class NativePatchBukkit {
      */
     public static void initCallbacks(
         long sendMessageAddr,
-        long registerEventAddr,
         long callEventAddr,
         long getLocationAddr,
         long freeStringAddr,
@@ -197,17 +195,6 @@ public class NativePatchBukkit {
         sendMessageNative = LINKER.downcallHandle(
             MemorySegment.ofAddress(sendMessageAddr),
             FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS)
-        );
-
-        // void rust_register_event(const char* event_type, const char* plugin_name, int32_t priority, bool blocking)
-        registerEventNative = LINKER.downcallHandle(
-            MemorySegment.ofAddress(registerEventAddr),
-            FunctionDescriptor.ofVoid(
-                ValueLayout.ADDRESS,      // event_type string
-                ValueLayout.ADDRESS,      // plugin_name string
-                ValueLayout.JAVA_INT,     // priority ordinal
-                ValueLayout.JAVA_BOOLEAN  // blocking
-            )
         );
 
         // bool rust_call_event(const char* event_type, const char* event_data_json)
@@ -291,28 +278,6 @@ public class NativePatchBukkit {
             sendMessageNative.invokeExact(uuidStr, msgStr);
         } catch (Throwable t) {
             throw new RuntimeException("Failed to call native sendMessage", t);
-        }
-    }
-
-    /**
-    * Register an event listener with Pumpkin's event system.
-    *
-    * Called by PatchBukkitEventManager when a plugin registers for an event.
-    * Rust will create a PatchBukkitEventHandler that listens for the corresponding
-    * Pumpkin event and dispatches back to Java when it fires.
-    *
-    * @param eventType   Fully qualified Bukkit event class name (e.g. "org.bukkit.event.player.PlayerJoinEvent")
-    * @param pluginName  Name of the plugin registering this listener
-    * @param priority    Bukkit EventPriority ordinal (0=LOWEST through 5=MONITOR), clamped to 0-4 for Pumpkin
-    * @param blocking    Whether the handler should block
-    */
-    public static void registerEvent(String eventType, String pluginName, int priority, boolean blocking) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment eventTypeStr = arena.allocateFrom(eventType);
-            MemorySegment pluginNameStr = arena.allocateFrom(pluginName);
-            registerEventNative.invokeExact(eventTypeStr, pluginNameStr, priority, blocking);
-        } catch (Throwable t) {
-            throw new RuntimeException("Failed to register event: " + eventType + " for plugin " + pluginName, t);
         }
     }
 

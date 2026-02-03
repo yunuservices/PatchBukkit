@@ -19,6 +19,8 @@ import com.google.common.collect.Sets;
 import co.aikar.timings.TimedEventExecutor;
 
 import org.jetbrains.annotations.NotNull;
+import patchbukkit.bridge.NativeBridgeFfi;
+import patchbukkit.common.RegisterEventRequest;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -128,12 +130,8 @@ public class PatchBukkitEventManager {
 
             for (RegisteredListener rl : entry.getValue()) {
                 int priorityOrdinal = Math.min(rl.getPriority().ordinal(), 4);
-                NativePatchBukkit.registerEvent(
-                    entry.getKey().getName(),
-                    plugin.getName(),
-                    priorityOrdinal,
-                    true
-                );
+                var request = RegisterEventRequest.newBuilder().setEventType(entry.getKey().getName()).setPluginName(plugin.getName()).setPriority(priorityOrdinal).setBlocking(true).build();
+                NativeBridgeFfi.registerEvent(request);
             }
         }
     }
@@ -151,7 +149,8 @@ public class PatchBukkitEventManager {
         this.getEventListeners(event).register(new RegisteredListener(listener, executor, priority, plugin, ignoreCancelled));
 
         int priorityOrdinal = Math.min(priority.ordinal(), 4);
-        NativePatchBukkit.registerEvent(event.getName(), plugin.getName(), priorityOrdinal, true); // We default to having all events blocking.
+        var request = RegisterEventRequest.newBuilder().setEventType(event.getName()).setPluginName(plugin.getName()).setPriority(priorityOrdinal).setBlocking(true).build();
+        NativeBridgeFfi.registerEvent(request);
 
     }
 

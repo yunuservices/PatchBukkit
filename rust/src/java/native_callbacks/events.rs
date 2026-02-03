@@ -7,22 +7,11 @@ use pumpkin_util::text::TextComponent;
 
 use crate::events::handler::PatchBukkitEventHandler;
 use crate::java::native_callbacks::{CALLBACK_CONTEXT, utils::get_string};
+use crate::proto::patchbukkit::common::RegisterEventRequest;
 
-pub extern "C" fn rust_register_event(
-    event_type_ptr: *const c_char,
-    plugin_name_ptr: *const c_char,
-    priority: i32,
-    blocking: bool,
-) {
-    let event_type = get_string(event_type_ptr);
-    let plugin_name = get_string(plugin_name_ptr);
-
-    let Some(ctx) = CALLBACK_CONTEXT.get() else {
-        log::error!("CallbackContext not initialized when registering event");
-        return;
-    };
-
-    let pumpkin_priority = match priority {
+pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> Option<()> {
+    let ctx = CALLBACK_CONTEXT.get()?;
+    let pumpkin_priority = match request.priority {
         0 => EventPriority::Lowest,
         1 => EventPriority::Low,
         2 => EventPriority::Normal,
@@ -31,16 +20,19 @@ pub extern "C" fn rust_register_event(
     };
 
     log::info!(
-        "Plugin '{plugin_name}' registering listener for '{event_type}' (priority={priority:?}, blocking={blocking})"
+        "Plugin '{}' registering listener for '{}' (priority={:?}, blocking={})",
+        request.plugin_name,
+        request.event_type,
+        request.priority,
+        request.blocking
     );
 
     let command_tx = ctx.command_tx.clone();
     let context = ctx.plugin_context.clone();
-    let event_type_owned = event_type;
 
     tokio::task::block_in_place(|| {
         ctx.runtime.block_on(async {
-            match event_type_owned.as_str() {
+            match request.event_type.as_str() {
                 "org.bukkit.event.player.PlayerJoinEvent" => {
                     context
                         .register_event::<
@@ -48,22 +40,25 @@ pub extern "C" fn rust_register_event(
                             PatchBukkitEventHandler<pumpkin::plugin::player::player_join::PlayerJoinEvent>,
                         >(
                             Arc::new(PatchBukkitEventHandler::new(
-                                plugin_name.clone(),
+                                request.plugin_name.clone(),
                                 command_tx.clone(),
                             )),
                             pumpkin_priority,
-                            blocking,
+                            request.blocking,
                         )
                         .await;
                 }
                 _ => {
                     log::warn!(
-                        "Unsupported Bukkit event type '{event_type_owned}' from plugin '{plugin_name}'"
+                        "Unsupported Bukkit event type '{}' from plugin '{}'",
+                        request.event_type, request.plugin_name
                     );
                 }
             }
         });
     });
+
+    Some(())
 }
 
 pub extern "C" fn rust_call_event(
