@@ -8,6 +8,7 @@ import org.bukkit.Keyed;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
 import org.jetbrains.annotations.Unmodifiable;
+import patchbukkit.bridge.NativeBridgeFfi;
 
 import java.util.*;
 import java.util.stream.Collectors;

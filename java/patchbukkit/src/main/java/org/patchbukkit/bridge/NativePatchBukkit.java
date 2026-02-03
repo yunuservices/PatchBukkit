@@ -17,8 +17,6 @@ public class NativePatchBukkit {
     private static MethodHandle sendMessageNative;
     private static MethodHandle registerEventNative;
     private static MethodHandle callEventNative;
-    private static MethodHandle getAbilitiesNative;
-    private static MethodHandle setAbilitiesNative;
     private static MethodHandle getLocationNative;
     private static MethodHandle getWorldNative;
     private static MethodHandle freeStringNative;
@@ -188,8 +186,6 @@ public class NativePatchBukkit {
         long sendMessageAddr,
         long registerEventAddr,
         long callEventAddr,
-        long getAbilitiesAddr,
-        long setAbilitiesAddr,
         long getLocationAddr,
         long freeStringAddr,
         long getWorldAddr,
@@ -225,25 +221,6 @@ public class NativePatchBukkit {
             )
         );
 
-        // bool rust_get_abilities(const char* uuid, AbilitiesFFI* out)
-        getAbilitiesNative = LINKER.downcallHandle(
-            MemorySegment.ofAddress(getAbilitiesAddr),
-            FunctionDescriptor.of(
-                ValueLayout.JAVA_BOOLEAN, // return type
-                ValueLayout.ADDRESS, // uuid string
-                ValueLayout.ADDRESS // out pointer to AbilitiesFFI
-            )
-        );
-
-        // bool rust_set_abilities(const char* uuid, AbilitiesFFI* abilities)
-        setAbilitiesNative = LINKER.downcallHandle(
-            MemorySegment.ofAddress(setAbilitiesAddr),
-            FunctionDescriptor.of(
-                ValueLayout.JAVA_BOOLEAN, // return type
-                ValueLayout.ADDRESS, // uuid string
-                ValueLayout.ADDRESS // pointer to AbilitiesFFI
-            )
-        );
 
         // bool rust_get_location(const char* uuid, Vec3FFI* out)
         getLocationNative = LINKER.downcallHandle(
@@ -336,67 +313,6 @@ public class NativePatchBukkit {
             registerEventNative.invokeExact(eventTypeStr, pluginNameStr, priority, blocking);
         } catch (Throwable t) {
             throw new RuntimeException("Failed to register event: " + eventType + " for plugin " + pluginName, t);
-        }
-    }
-
-    /**
-     * Get a player's abilities by UUID.
-     *
-     * @param uuid The player's UUID
-     * @return The player's abilities, or null if player not found
-     */
-    public static Abilities getAbilities(UUID uuid) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment uuidStr = arena.allocateFrom(uuid.toString());
-            MemorySegment outStruct = arena.allocate(ABILITIES_LAYOUT);
-
-            boolean success = (boolean) getAbilitiesNative.invokeExact(
-                uuidStr,
-                outStruct
-            );
-
-            if (!success) {
-                return null;
-            }
-
-            return new Abilities(
-                (boolean) INVULNERABLE.get(outStruct, 0L),
-                (boolean) FLYING.get(outStruct, 0L),
-                (boolean) ALLOW_FLYING.get(outStruct, 0L),
-                (boolean) CREATIVE.get(outStruct, 0L),
-                (boolean) ALLOW_MODIFY_WORLD.get(outStruct, 0L),
-                (float) FLY_SPEED.get(outStruct, 0L),
-                (float) WALK_SPEED.get(outStruct, 0L)
-            );
-        } catch (Throwable t) {
-            throw new RuntimeException("Failed to call native getAbilities", t);
-        }
-    }
-
-    public static boolean setAbilities(UUID uuid, Abilities abilities) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment uuidStr = arena.allocateFrom(uuid.toString());
-            MemorySegment abilitiesStruct = arena.allocate(ABILITIES_LAYOUT);
-
-            // Populate the struct with values from the Abilities record
-            INVULNERABLE.set(abilitiesStruct, 0L, abilities.invulnerable());
-            FLYING.set(abilitiesStruct, 0L, abilities.flying());
-            ALLOW_FLYING.set(abilitiesStruct, 0L, abilities.allowFlying());
-            CREATIVE.set(abilitiesStruct, 0L, abilities.creative());
-            ALLOW_MODIFY_WORLD.set(
-                abilitiesStruct,
-                0L,
-                abilities.allowModifyWorld()
-            );
-            FLY_SPEED.set(abilitiesStruct, 0L, abilities.flySpeed());
-            WALK_SPEED.set(abilitiesStruct, 0L, abilities.walkSpeed());
-
-            return (boolean) setAbilitiesNative.invokeExact(
-                uuidStr,
-                abilitiesStruct
-            );
-        } catch (Throwable t) {
-            throw new RuntimeException("Failed to call native setAbilities", t);
         }
     }
 

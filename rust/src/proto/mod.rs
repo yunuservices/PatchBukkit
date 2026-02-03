@@ -11,3 +11,5 @@ pub mod patchbukkit {
         include!(concat!(env!("OUT_DIR"), "/patchbukkit.events.rs"));
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/ffi_init.rs"));

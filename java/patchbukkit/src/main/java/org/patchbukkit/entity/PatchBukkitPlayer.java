@@ -62,6 +62,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Range;
 import org.jetbrains.annotations.Unmodifiable;
 import org.jetbrains.annotations.UnmodifiableView;
+import org.patchbukkit.bridge.BridgeUtils;
 import org.patchbukkit.bridge.NativePatchBukkit;
 import org.patchbukkit.registry.PatchBukkitSound;
 
@@ -78,6 +79,8 @@ import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.util.TriState;
 import net.md_5.bungee.api.chat.BaseComponent;
+import patchbukkit.bridge.NativeBridgeFfi;
+import patchbukkit.common.SetAbilitiesRequest;
 
 @SuppressWarnings({ "deprecation", "removal" })
 public class PatchBukkitPlayer
@@ -1177,16 +1180,15 @@ public class PatchBukkitPlayer
 
     @Override
     public boolean getAllowFlight() {
-        return NativePatchBukkit.getAbilities(this.uuid).allowFlying();
+        return NativeBridgeFfi.getAbilities(BridgeUtils.convertUuid(this.uuid)).getAllowFlying();
     }
 
     @Override
     public void setAllowFlight(boolean flight) {
-        var abilities = NativePatchBukkit.getAbilities(this.uuid).withAllowFlying(flight);
-        if (flight == false) {
-            abilities = abilities.withFlying(false);
-        }
-        NativePatchBukkit.setAbilities(this.uuid, abilities);
+        var abilities = NativeBridgeFfi.getAbilities(BridgeUtils.convertUuid(this.uuid)).toBuilder();
+        abilities.setAllowFlying(flight);
+        if (abilities.getFlying()) abilities.setFlying(false);
+        NativeBridgeFfi.setAbilities(SetAbilitiesRequest.newBuilder().setAbilities(abilities).setUuid(BridgeUtils.convertUuid(this.uuid)).build());
     }
 
     @Override
@@ -1279,8 +1281,9 @@ public class PatchBukkitPlayer
 
     @Override
     public void setFlying(boolean value) {
-        var abilities = NativePatchBukkit.getAbilities(this.getUniqueId()).withFlying(value);
-        NativePatchBukkit.setAbilities(this.getUniqueId(), abilities);
+        var playerUuid = BridgeUtils.convertUuid(this.getUniqueId());
+        var abilities = NativeBridgeFfi.getAbilities(playerUuid).toBuilder().setFlying(value).build();
+        NativeBridgeFfi.setAbilities(SetAbilitiesRequest.newBuilder().setAbilities(abilities).setUuid(playerUuid).build());
     }
 
     @Override

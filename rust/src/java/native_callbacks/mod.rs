@@ -5,7 +5,7 @@ use j4rs::{InvocationArg, Jvm};
 use pumpkin::plugin::Context;
 use tokio::sync::mpsc;
 
-use crate::{java::jvm::commands::JvmCommand, proto};
+use crate::{java::jvm::commands::JvmCommand, proto::initialize_ffi_callbacks};
 
 mod abilities;
 pub use abilities::*;
@@ -68,10 +68,6 @@ pub fn initialize_callbacks(jvm: &Jvm) -> Result<()> {
     let send_message_addr = message::rust_send_message as *const () as i64;
     let register_event_addr = events::rust_register_event as *const () as i64;
     let call_event_addr = events::rust_call_event as *const () as i64;
-    let get_abilities_addr =
-        proto::patchbukkit::bridge::ffi_native_bridge_get_abilities as *const () as i64;
-    let set_abilities_addr =
-        proto::patchbukkit::bridge::ffi_native_bridge_set_abilities as *const () as i64;
     let get_location_addr = location::rust_get_location as *const () as i64;
     let free_string_addr = memory::rust_free_string as *const () as i64;
     let get_world_addr = world::rust_get_world as *const () as i64;
@@ -87,8 +83,6 @@ pub fn initialize_callbacks(jvm: &Jvm) -> Result<()> {
             InvocationArg::try_from(send_message_addr)?.into_primitive()?,
             InvocationArg::try_from(register_event_addr)?.into_primitive()?,
             InvocationArg::try_from(call_event_addr)?.into_primitive()?,
-            InvocationArg::try_from(get_abilities_addr)?.into_primitive()?,
-            InvocationArg::try_from(set_abilities_addr)?.into_primitive()?,
             InvocationArg::try_from(get_location_addr)?.into_primitive()?,
             InvocationArg::try_from(free_string_addr)?.into_primitive()?,
             InvocationArg::try_from(get_world_addr)?.into_primitive()?,
@@ -97,6 +91,8 @@ pub fn initialize_callbacks(jvm: &Jvm) -> Result<()> {
             InvocationArg::try_from(rust_player_play_sound_addr)?.into_primitive()?,
         ],
     )?;
+
+    initialize_ffi_callbacks(jvm)?;
 
     Ok(())
 }

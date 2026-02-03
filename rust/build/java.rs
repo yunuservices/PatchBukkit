@@ -88,7 +88,9 @@ pub fn setup_java(base: PathBuf) {
         ("org.eclipse.sisu", "org.eclipse.sisu.inject", "0.9.0.M2"),
         ("org.apache.commons", "commons-lang3", "3.12.0"),
         ("net.kyori", "option", "1.1.0"),
+        // These are deps of patchbukkit itself
         ("io.papermc.paper", "paper-api", "1.21.11-R0.1-SNAPSHOT"),
+        ("com.google.protobuf", "protobuf-java", "4.33.5"),
     ];
 
     let jvm = JvmBuilder::new()
