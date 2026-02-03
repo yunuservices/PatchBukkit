@@ -17,8 +17,25 @@ protobuf {
     protoc {
         artifact = "com.google.protobuf:protoc:$protobufVersion"
     }
+
+    plugins {
+        create("ffi") {
+            path = "${rootProject.projectDir}/protoc-gen-ffi/build/libs/protoc-gen-ffi.jar"
+        }
+    }
+
+    generateProtoTasks {
+        all().forEach { task ->
+            task.plugins {
+                create("ffi")
+            }
+        }
+    }
 }
 
+tasks.named("generateProto") {
+    dependsOn(":protoc-gen-ffi:jar")
+}
 
 repositories {
     maven {

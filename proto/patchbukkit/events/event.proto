@@ -4,11 +4,14 @@ package patchbukkit.events;
 
 import "patchbukkit/events/player_events.proto";
 
-message Event {
-    string event_id = 1;
-    bool cancellable = 2;
+option java_multiple_files = true;
+option java_package = "patchbukkit.events";
 
-    oneof event_data {
-        PlayerJoinEvent player_join = 10;
-    }
+message Event {
+  string event_id = 1;
+  bool cancellable = 2;
+
+  oneof event_data {
+    PlayerJoinEvent player_join = 10;
+  }
 }

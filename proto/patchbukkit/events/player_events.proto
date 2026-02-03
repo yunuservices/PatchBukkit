@@ -3,7 +3,10 @@ package patchbukkit.events;
 
 import "patchbukkit/common/types.proto";
 
+option java_multiple_files = true;
+option java_package = "patchbukkit.events";
+
 message PlayerJoinEvent {
-    patchbukkit.common.UUID player = 1;
-    string join_message = 2;
+  patchbukkit.common.UUID player = 1;
+  string join_message = 2;
 }

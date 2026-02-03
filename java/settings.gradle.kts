@@ -12,3 +12,4 @@ plugins {
 
 rootProject.name = "patchbukkit"
 include("patchbukkit")
+include("protoc-gen-ffi")
