@@ -42,12 +42,32 @@ pub fn init_callback_context(
     Ok(())
 }
 
+pub fn encode_with_length(data: Vec<u8>) -> *mut u8 {
+    let len = data.len() as u32;
+    let mut result = Vec::with_capacity(4 + data.len());
+    result.extend_from_slice(&len.to_le_bytes());
+    result.extend(data);
+
+    let ptr = result.as_mut_ptr();
+    std::mem::forget(result);
+    ptr
+}
+
+pub extern "C" fn rust_free_bytes(ptr: *mut u8, len: u32) {
+    if !ptr.is_null() {
+        unsafe {
+            let total_len = 4 + len as usize;
+            drop(Vec::from_raw_parts(ptr, total_len, total_len));
+        }
+    }
+}
+
 pub fn initialize_callbacks(jvm: &Jvm) -> Result<()> {
     let send_message_addr = message::rust_send_message as *const () as i64;
     let register_event_addr = events::rust_register_event as *const () as i64;
     let call_event_addr = events::rust_call_event as *const () as i64;
-    let get_abilities_addr = abilities::rust_get_abilities as *const () as i64;
-    let set_abilities_addr = abilities::rust_set_abilities as *const () as i64;
+    let get_abilities_addr = abilities::ffi_native_bridge_set_abilities as *const () as i64;
+    let set_abilities_addr = abilities::ffi_native_bridge_set_abilities as *const () as i64;
     let get_location_addr = location::rust_get_location as *const () as i64;
     let free_string_addr = memory::rust_free_string as *const () as i64;
     let get_world_addr = world::rust_get_world as *const () as i64;

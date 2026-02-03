@@ -1,0 +1,11 @@
+syntax = "proto3";
+package patchbukkit.bridge;
+
+import "google/protobuf/wrappers.proto";
+import "patchbukkit/common/abilities.proto";
+import "patchbukkit/common/types.proto";
+
+service NativeBridge {
+  rpc GetAbilities(patchbukkit.common.UUID) returns (patchbukkit.common.Abilities);
+  rpc SetAbilities(patchbukkit.common.SetAbilitiesRequest) returns (google.protobuf.BoolValue);
+}

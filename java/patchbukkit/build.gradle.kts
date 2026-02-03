@@ -1,6 +1,24 @@
 plugins {
     `java-library`
+    id("com.google.protobuf") version "0.9.6"
 }
+
+val protobufVersion = "4.33.5"
+
+sourceSets {
+    main {
+        proto {
+            srcDir("../../proto")
+        }
+    }
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:$protobufVersion"
+    }
+}
+
 
 repositories {
     maven {
@@ -18,6 +36,7 @@ dependencies {
     implementation("org.apache.maven.resolver:maven-resolver-connector-basic:1.9.18")
     implementation("org.apache.maven.resolver:maven-resolver-transport-http:1.9.18")
     implementation("org.apache.maven.resolver:maven-resolver-util:1.9.18")
+    implementation("com.google.protobuf:protobuf-java:$protobufVersion")
 }
 
 java {

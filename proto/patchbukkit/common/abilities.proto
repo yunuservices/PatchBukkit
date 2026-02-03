@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package patchbukkit.common;
+
+import "patchbukkit/common/types.proto";
+
+message SetAbilitiesRequest {
+  patchbukkit.common.UUID uuid = 1;
+  patchbukkit.common.Abilities abilities = 2;
+}
+
+message Abilities {
+  bool invulnerable = 1;
+  bool flying = 2;
+  bool allow_flying = 3;
+  bool creative = 4;
+  bool allow_modify_world = 5;
+  float fly_speed = 6;
+  float walk_speed = 7;
+}

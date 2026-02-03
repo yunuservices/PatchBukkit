@@ -1,12 +1,101 @@
 use std::{collections::HashSet, fs, path::PathBuf};
 
+use glob::glob;
 use j4rs::{JvmBuilder, LocalJarArtifact, MavenArtifact, MavenArtifactRepo, MavenSettings};
 
+use prost_build::{Config, Service, ServiceGenerator};
+
+struct FfiServiceGenerator;
+
+impl ServiceGenerator for FfiServiceGenerator {
+    fn generate(&mut self, service: Service, buf: &mut String) {
+        for method in &service.methods {
+            let fn_name = format!("ffi_{}_{}", to_snake_case(&service.name), &method.name);
+            let input_type = &method.input_type;
+            let output_type = &method.output_type;
+
+            buf.push_str(&format!(
+                r#"
+#[no_mangle]
+pub unsafe extern "C" fn {fn_name}(
+    input_ptr: *const u8,
+    input_len: usize,
+    output_len: *mut usize,
+) -> *mut u8 {{
+    use prost::Message;
+
+    let input_slice = std::slice::from_raw_parts(input_ptr, input_len);
+    let request = match {input_type}::decode(input_slice) {{
+        Ok(req) => req,
+        Err(_) => {{
+            *output_len = 0;
+            return std::ptr::null_mut();
+        }}
+    }};
+
+    let response = {fn_name}_impl(request);
+
+    let encoded = response.encode_to_vec();
+    *output_len = encoded.len();
+
+    let ptr = encoded.as_ptr() as *mut u8;
+    std::mem::forget(encoded);
+    ptr
+}}
+"#
+            ));
+        }
+    }
+}
+
+fn to_snake_case(s: &str) -> String {
+    let mut result = String::new();
+    for (i, c) in s.chars().enumerate() {
+        if c.is_uppercase() {
+            if i > 0 {
+                result.push('_');
+            }
+            result.push(c.to_ascii_lowercase());
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
 #[expect(clippy::too_many_lines)]
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo::rerun-if-changed=rust/src/build.rs");
     println!("cargo::rerun-if-changed=java/build/libs/");
     env_logger::init();
+
+    let base = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let resources = base.join("resources");
+    let jassets = resources.join("jassets");
+    let deps = resources.join("deps");
+
+    let mut java_path = base.clone();
+    java_path.pop();
+    let java_path = java_path.join("java");
+
+    let patchbukkit_jar = java_path
+        .join("patchbukkit")
+        .join("build")
+        .join("libs")
+        .join("patchbukkit.jar");
+
+    let mut proto_path = base.clone();
+    proto_path.pop();
+    let proto_path = proto_path.join("proto");
+
+    let paths = glob(&format!("{}/**/*.proto", proto_path.display()))
+        .expect("Failed to read glob pattern")
+        .filter_map(|p| p.ok())
+        .collect::<Vec<_>>();
+
+    let mut config = Config::new();
+    config.service_generator(Box::new(FfiServiceGenerator));
+    config.compile_protos(paths.as_slice(), &[proto_path])?;
 
     let dependencies = [
         ("com.google.guava", "guava", "33.3.1-jre"),
@@ -82,11 +171,6 @@ fn main() {
         ("io.papermc.paper", "paper-api", "1.21.11-R0.1-SNAPSHOT"),
     ];
 
-    let base = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    let resources = base.join("resources");
-    let jassets = resources.join("jassets");
-    let deps = resources.join("deps");
-
     let jvm = JvmBuilder::new()
         .with_maven_settings(MavenSettings::new(vec![MavenArtifactRepo::from(
             "papermc::https://repo.papermc.io/repository/maven-public/",
@@ -131,21 +215,11 @@ fn main() {
         }
     }
 
-    let mut java_path = base;
-    java_path.pop();
-    let java_path = java_path.join("java");
-
-    let patchbukkit_jar = java_path
-        .join("patchbukkit")
-        .join("build")
-        .join("libs")
-        .join("patchbukkit.jar");
-
-    println!("patchbukkit_jar: {}", patchbukkit_jar.display());
-    assert!(
-        !!&patchbukkit_jar.exists(),
-        "Failed to find patchbukkit.jar, build the java library first by running `gradle build` in the java directory!"
-    );
+    if !&patchbukkit_jar.exists() {
+        panic!(
+            "Failed to find patchbukkit.jar, build the java library first by running `gradle build` in the java directory!"
+        );
+    }
 
     jvm.deploy_artifact(&LocalJarArtifact::new(&patchbukkit_jar.to_string_lossy()))
         .unwrap();

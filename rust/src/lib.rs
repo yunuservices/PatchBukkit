@@ -10,6 +10,7 @@ pub mod config;
 pub mod directories;
 pub mod events;
 pub mod java;
+pub mod proto;
 
 use directories::setup_directories;
 use java::{
@@ -32,6 +33,8 @@ async fn on_load_inner(plugin: &PatchBukkitPlugin, server: Arc<Context>) -> Resu
 
     // Setup directories
     let dirs = setup_directories(&server)?;
+
+    proto::patchbukkit::common::Uuid::default();
 
     // Discover and prepare JAR files
     let jar_paths = discover_jar_files(&dirs.plugins);

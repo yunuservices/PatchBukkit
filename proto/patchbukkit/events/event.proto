@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package patchbukkit.events;
+
+import "patchbukkit/events/player_events.proto";
+
+message Event {
+    string event_id = 1;
+    bool cancellable = 2;
+
+    oneof event_data {
+        PlayerJoinEvent player_join = 10;
+    }
+}

@@ -1,0 +1,9 @@
+syntax = "proto3";
+package patchbukkit.events;
+
+import "patchbukkit/common/types.proto";
+
+message PlayerJoinEvent {
+    patchbukkit.common.UUID player = 1;
+    string join_message = 2;
+}
