@@ -695,6 +695,40 @@ public class PatchBukkitEventManager {
                     ).build()
                 );
                 break;
+            case "org.bukkit.event.player.PlayerResourcePackStatusEvent":
+                var packEvent = (org.bukkit.event.player.PlayerResourcePackStatusEvent) event;
+                var packUuid = PatchBukkitEventFactory.resolveResourcePackId(packEvent);
+                String status = packEvent.getStatus() != null ? packEvent.getStatus().name() : "FAILED_DOWNLOAD";
+                String hash = packEvent.getHash() != null ? packEvent.getHash() : "";
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setPlayerResourcePackStatus(
+                        patchbukkit.events.PlayerResourcePackStatusEvent.newBuilder()
+                            .setPlayerUuid(BridgeUtils.convertUuid(packEvent.getPlayer().getUniqueId()))
+                            .setPackUuid(BridgeUtils.convertUuid(packUuid))
+                            .setStatus(status)
+                            .setHash(hash)
+                            .build()
+                    ).build()
+                );
+                break;
+            case "org.bukkit.event.player.PlayerRespawnEvent":
+                var respawnEvent = (org.bukkit.event.player.PlayerRespawnEvent) event;
+                String reason = respawnEvent.getRespawnReason() != null
+                    ? respawnEvent.getRespawnReason().name()
+                    : "DEATH";
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setPlayerRespawn(
+                        patchbukkit.events.PlayerRespawnEvent.newBuilder()
+                            .setPlayerUuid(BridgeUtils.convertUuid(respawnEvent.getPlayer().getUniqueId()))
+                            .setRespawnLocation(BridgeUtils.convertLocation(respawnEvent.getRespawnLocation()))
+                            .setIsBedSpawn(respawnEvent.isBedSpawn())
+                            .setIsAnchorSpawn(respawnEvent.isAnchorSpawn())
+                            .setIsMissingRespawnBlock(respawnEvent.isMissingRespawnBlock())
+                            .setRespawnReason(reason)
+                            .build()
+                    ).build()
+                );
+                break;
             case "org.bukkit.event.player.PlayerInteractEvent":
                 var interactEvent = (org.bukkit.event.player.PlayerInteractEvent) event;
                 var clicked = interactEvent.getClickedBlock();

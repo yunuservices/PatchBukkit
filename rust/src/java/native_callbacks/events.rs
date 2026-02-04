@@ -24,6 +24,8 @@ use pumpkin::plugin::player::player_toggle_sneak::PlayerToggleSneakEvent;
 use pumpkin::plugin::player::player_toggle_sprint::PlayerToggleSprintEvent;
 use pumpkin::plugin::player::player_toggle_flight::PlayerToggleFlightEvent;
 use pumpkin::plugin::player::player_swap_hand_items::PlayerSwapHandItemsEvent;
+use pumpkin::plugin::player::player_resource_pack_status::PlayerResourcePackStatusEvent;
+use pumpkin::plugin::player::player_respawn::PlayerRespawnEvent;
 use pumpkin::plugin::player::player_interact_event::{InteractAction, PlayerInteractEvent};
 use pumpkin::plugin::player::player_join::PlayerJoinEvent;
 use pumpkin::plugin::player::player_login::PlayerLoginEvent;
@@ -742,6 +744,40 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
                             pumpkin::plugin::player::player_swap_hand_items::PlayerSwapHandItemsEvent,
                             PatchBukkitEventHandler<
                                 pumpkin::plugin::player::player_swap_hand_items::PlayerSwapHandItemsEvent,
+                            >,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.player.PlayerResourcePackStatusEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::player::player_resource_pack_status::PlayerResourcePackStatusEvent,
+                            PatchBukkitEventHandler<
+                                pumpkin::plugin::player::player_resource_pack_status::PlayerResourcePackStatusEvent,
+                            >,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.player.PlayerRespawnEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::player::player_respawn::PlayerRespawnEvent,
+                            PatchBukkitEventHandler<
+                                pumpkin::plugin::player::player_respawn::PlayerRespawnEvent,
                             >,
                         >(
                             Arc::new(PatchBukkitEventHandler::new(
@@ -1527,6 +1563,50 @@ pub fn ffi_native_bridge_call_event_impl(request: CallEventRequest) -> Option<Ca
                         player_swap_hand_items_event_data.off_hand_item_amount,
                     );
                     let pumpkin_event = PlayerSwapHandItemsEvent::new(player, main_item, off_item);
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
+                Data::PlayerResourcePackStatus(player_resource_pack_status_event_data) => {
+                    let uuid =
+                        uuid::Uuid::parse_str(&player_resource_pack_status_event_data.player_uuid?.value).ok()?;
+                    let player = context.server.get_player_by_uuid(uuid)?;
+                    let pack_uuid = player_resource_pack_status_event_data
+                        .pack_uuid
+                        .and_then(|uuid| uuid::Uuid::parse_str(&uuid.value).ok())
+                        .unwrap_or_else(uuid::Uuid::new_v4);
+                    let pumpkin_event = PlayerResourcePackStatusEvent::new(
+                        player,
+                        pack_uuid,
+                        player_resource_pack_status_event_data.hash,
+                        player_resource_pack_status_event_data.status,
+                    );
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
+                Data::PlayerRespawn(player_respawn_event_data) => {
+                    let uuid =
+                        uuid::Uuid::parse_str(&player_respawn_event_data.player_uuid?.value).ok()?;
+                    let player = context.server.get_player_by_uuid(uuid)?;
+                    let (world_uuid, pos) = if let Some(loc) = player_respawn_event_data.respawn_location {
+                        let world_uuid = loc
+                            .world
+                            .and_then(|w| w.uuid)
+                            .and_then(|uuid| uuid::Uuid::parse_str(&uuid.value).ok())
+                            .unwrap_or_else(|| player.world().uuid);
+                        let pos = location_to_vec3(loc).unwrap_or_else(|| player.position());
+                        (world_uuid, pos)
+                    } else {
+                        (player.world().uuid, player.position())
+                    };
+                    let pumpkin_event = PlayerRespawnEvent::new(
+                        player,
+                        pos,
+                        world_uuid,
+                        player_respawn_event_data.is_bed_spawn,
+                        player_respawn_event_data.is_anchor_spawn,
+                        player_respawn_event_data.is_missing_respawn_block,
+                        player_respawn_event_data.respawn_reason,
+                    );
                     context.server.plugin_manager.fire(pumpkin_event).await;
                     Some(true)
                 }

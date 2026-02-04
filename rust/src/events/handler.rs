@@ -34,7 +34,7 @@ use crate::proto::patchbukkit::events::{
     PlayerItemDamageEvent, PlayerItemBreakEvent, PlayerItemConsumeEvent, PlayerItemMendEvent,
     PlayerLevelChangeEvent, PlayerKickEvent,
     PlayerToggleSneakEvent, PlayerToggleSprintEvent, PlayerToggleFlightEvent,
-    PlayerSwapHandItemsEvent,
+    PlayerSwapHandItemsEvent, PlayerResourcePackStatusEvent, PlayerRespawnEvent,
 };
 
 pub struct EventContext {
@@ -1654,6 +1654,108 @@ impl PatchBukkitEvent for pumpkin::plugin::player::player_swap_hand_items::Playe
                         self.off_hand_item.item_count
                     };
                     self.off_hand_item = item_stack_from_key(&key, count);
+                }
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::player::player_resource_pack_status::PlayerResourcePackStatusEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::PlayerResourcePackStatus(PlayerResourcePackStatusEvent {
+                    player_uuid: Some(Uuid {
+                        value: self.player.gameprofile.id.to_string(),
+                    }),
+                    pack_uuid: Some(Uuid {
+                        value: self.pack_uuid.to_string(),
+                    }),
+                    status: self.status.clone(),
+                    hash: self.pack_hash.clone(),
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::PlayerResourcePackStatus(event) => {
+                if let Some(uuid) = event.pack_uuid {
+                    if let Ok(pack_uuid) = uuid::Uuid::from_str(&uuid.value) {
+                        self.pack_uuid = pack_uuid;
+                    }
+                }
+                if !event.status.is_empty() {
+                    self.status = event.status;
+                }
+                if !event.hash.is_empty() {
+                    self.pack_hash = event.hash;
+                }
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::player::player_respawn::PlayerRespawnEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        let yaw = self.player.living_entity.entity.yaw.load();
+        let pitch = self.player.living_entity.entity.pitch.load();
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::PlayerRespawn(PlayerRespawnEvent {
+                    player_uuid: Some(Uuid {
+                        value: self.player.gameprofile.id.to_string(),
+                    }),
+                    respawn_location: Some(build_location(
+                        self.world_uuid,
+                        &Vector3::new(
+                            self.respawn_position.x,
+                            self.respawn_position.y,
+                            self.respawn_position.z,
+                        ),
+                        yaw,
+                        pitch,
+                    )),
+                    is_bed_spawn: self.is_bed_spawn,
+                    is_anchor_spawn: self.is_anchor_spawn,
+                    is_missing_respawn_block: self.is_missing_respawn_block,
+                    respawn_reason: self.reason.clone(),
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::PlayerRespawn(event) => {
+                if let Some(loc) = event.respawn_location {
+                    if let Some(pos) = location_to_vec3(loc.clone()) {
+                        self.respawn_position = pos;
+                    }
+                    if let Some(world) = loc.world.and_then(|w| w.uuid) {
+                        if let Ok(uuid) = uuid::Uuid::from_str(&world.value) {
+                            self.world_uuid = uuid;
+                        }
+                    }
+                }
+                self.is_bed_spawn = event.is_bed_spawn;
+                self.is_anchor_spawn = event.is_anchor_spawn;
+                self.is_missing_respawn_block = event.is_missing_respawn_block;
+                if !event.respawn_reason.is_empty() {
+                    self.reason = event.respawn_reason;
                 }
             }
             _ => {}

@@ -48,6 +48,8 @@ import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.event.player.PlayerToggleSprintEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
+import org.bukkit.event.player.PlayerResourcePackStatusEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.BroadcastMessageEvent;
@@ -702,6 +704,54 @@ public class PatchBukkitEventFactory {
                 ItemStack offHand = materialToItem(swapEvent.getOffHandItemKey(), swapEvent.getOffHandItemAmount());
                 yield new PlayerSwapHandItemsEvent(player, mainHand, offHand);
             }
+            case PLAYER_RESOURCE_PACK_STATUS -> {
+                patchbukkit.events.PlayerResourcePackStatusEvent packEvent = event.getPlayerResourcePackStatus();
+                Player player = getPlayer(packEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+                java.util.UUID packUuid;
+                try {
+                    packUuid = java.util.UUID.fromString(packEvent.getPackUuid().getValue());
+                } catch (IllegalArgumentException e) {
+                    packUuid = java.util.UUID.randomUUID();
+                }
+                PlayerResourcePackStatusEvent.Status status = PlayerResourcePackStatusEvent.Status.FAILED_DOWNLOAD;
+                if (!packEvent.getStatus().isEmpty()) {
+                    try {
+                        status = PlayerResourcePackStatusEvent.Status.valueOf(packEvent.getStatus());
+                    } catch (IllegalArgumentException ignored) {
+                        status = PlayerResourcePackStatusEvent.Status.FAILED_DOWNLOAD;
+                    }
+                }
+                PlayerResourcePackStatusEvent statusEvent =
+                    new PlayerResourcePackStatusEvent(player, packUuid, status);
+                if (!packEvent.getHash().isEmpty()) {
+                    statusEvent.setHash(packEvent.getHash());
+                }
+                yield statusEvent;
+            }
+            case PLAYER_RESPAWN -> {
+                patchbukkit.events.PlayerRespawnEvent respawnEvent = event.getPlayerRespawn();
+                Player player = getPlayer(respawnEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+                Location location = BridgeUtils.convertLocation(respawnEvent.getRespawnLocation());
+                if (location == null) yield null;
+                PlayerRespawnEvent.RespawnReason reason = PlayerRespawnEvent.RespawnReason.DEATH;
+                if (!respawnEvent.getRespawnReason().isEmpty()) {
+                    try {
+                        reason = PlayerRespawnEvent.RespawnReason.valueOf(respawnEvent.getRespawnReason());
+                    } catch (IllegalArgumentException ignored) {
+                        reason = PlayerRespawnEvent.RespawnReason.DEATH;
+                    }
+                }
+                yield new PlayerRespawnEvent(
+                    player,
+                    location,
+                    respawnEvent.getIsBedSpawn(),
+                    respawnEvent.getIsAnchorSpawn(),
+                    respawnEvent.getIsMissingRespawnBlock(),
+                    reason
+                );
+            }
             case PLAYER_INTERACT -> {
                 patchbukkit.events.PlayerInteractEvent interactEvent = event.getPlayerInteract();
                 Player player = getPlayer(interactEvent.getPlayerUuid().getValue());
@@ -1242,6 +1292,39 @@ public class PatchBukkitEventFactory {
                     .setOffHandItemAmount(offAmount)
                     .build()
             );
+        } else if (event instanceof PlayerResourcePackStatusEvent packEvent) {
+            java.util.UUID packUuid = resolveResourcePackId(packEvent);
+            String status = packEvent.getStatus() != null ? packEvent.getStatus().name() : "FAILED_DOWNLOAD";
+            String hash = packEvent.getHash() != null ? packEvent.getHash() : "";
+            eventBuilder.setPlayerResourcePackStatus(
+                patchbukkit.events.PlayerResourcePackStatusEvent.newBuilder()
+                    .setPlayerUuid(UUID.newBuilder()
+                        .setValue(packEvent.getPlayer().getUniqueId().toString())
+                        .build())
+                    .setPackUuid(UUID.newBuilder()
+                        .setValue(packUuid.toString())
+                        .build())
+                    .setStatus(status)
+                    .setHash(hash)
+                    .build()
+            );
+        } else if (event instanceof PlayerRespawnEvent respawnEvent) {
+            Location location = respawnEvent.getRespawnLocation();
+            String reason = respawnEvent.getRespawnReason() != null
+                ? respawnEvent.getRespawnReason().name()
+                : "DEATH";
+            eventBuilder.setPlayerRespawn(
+                patchbukkit.events.PlayerRespawnEvent.newBuilder()
+                    .setPlayerUuid(UUID.newBuilder()
+                        .setValue(respawnEvent.getPlayer().getUniqueId().toString())
+                        .build())
+                    .setRespawnLocation(BridgeUtils.convertLocation(location))
+                    .setIsBedSpawn(respawnEvent.isBedSpawn())
+                    .setIsAnchorSpawn(respawnEvent.isAnchorSpawn())
+                    .setIsMissingRespawnBlock(respawnEvent.isMissingRespawnBlock())
+                    .setRespawnReason(reason)
+                    .build()
+            );
         } else if (event instanceof AsyncPlayerChatEvent chatEvent) {
             var playerEventBuilder = patchbukkit.events.PlayerChatEvent.newBuilder()
                 .setPlayerUuid(UUID.newBuilder()
@@ -1522,6 +1605,43 @@ public class PatchBukkitEventFactory {
             LOGGER.severe("EventFactory: Invalid UUID string: " + uuidStr);
             return null;
         }
+    }
+
+    @NotNull
+    static java.util.UUID resolveResourcePackId(@NotNull PlayerResourcePackStatusEvent event) {
+        java.util.UUID packUuid = null;
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getPackId");
+            Object value = method.invoke(event);
+            if (value instanceof java.util.UUID uuid) {
+                packUuid = uuid;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // Fallback to alternative method names
+        }
+        if (packUuid == null) {
+            try {
+                java.lang.reflect.Method method = event.getClass().getMethod("getID");
+                Object value = method.invoke(event);
+                if (value instanceof java.util.UUID uuid) {
+                    packUuid = uuid;
+                }
+            } catch (ReflectiveOperationException ignored) {
+                // ignore
+            }
+        }
+        if (packUuid == null) {
+            try {
+                java.lang.reflect.Method method = event.getClass().getMethod("getId");
+                Object value = method.invoke(event);
+                if (value instanceof java.util.UUID uuid) {
+                    packUuid = uuid;
+                }
+            } catch (ReflectiveOperationException ignored) {
+                // ignore
+            }
+        }
+        return packUuid != null ? packUuid : java.util.UUID.randomUUID();
     }
 
     @Nullable

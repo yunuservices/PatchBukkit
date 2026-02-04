@@ -61,6 +61,8 @@ message Event {
     PlayerToggleSprintEvent player_toggle_sprint = 46;
     PlayerToggleFlightEvent player_toggle_flight = 47;
     PlayerSwapHandItemsEvent player_swap_hand_items = 48;
+    PlayerResourcePackStatusEvent player_resource_pack_status = 49;
+    PlayerRespawnEvent player_respawn = 50;
   }
 }
 
