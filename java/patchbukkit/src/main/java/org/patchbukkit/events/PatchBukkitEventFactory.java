@@ -20,6 +20,7 @@ import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerAdvancementDoneEvent;
 import org.bukkit.event.player.PlayerAnimationEvent;
 import org.bukkit.event.player.PlayerAnimationType;
+import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.BroadcastMessageEvent;
@@ -36,8 +37,10 @@ import org.patchbukkit.world.PatchBukkitBlock;
 import org.patchbukkit.world.PatchBukkitWorld;
 import org.patchbukkit.entity.PatchBukkitEntity;
 import org.patchbukkit.entity.PatchBukkitLivingEntity;
+import org.patchbukkit.entity.PatchBukkitArmorStand;
 import org.bukkit.block.BlockFace;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.Material;
 import org.bukkit.GameMode;
 import org.bukkit.NamespacedKey;
@@ -208,6 +211,32 @@ public class PatchBukkitEventFactory {
                     }
                 }
                 yield new PlayerAnimationEvent(player, type);
+            }
+            case PLAYER_ARMOR_STAND_MANIPULATE -> {
+                patchbukkit.events.PlayerArmorStandManipulateEvent armorEvent =
+                    event.getPlayerArmorStandManipulate();
+                Player player = getPlayer(armorEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+                java.util.UUID standUuid;
+                try {
+                    standUuid = java.util.UUID.fromString(armorEvent.getArmorStandUuid().getValue());
+                } catch (IllegalArgumentException e) {
+                    yield null;
+                }
+                PatchBukkitArmorStand armorStand = new PatchBukkitArmorStand(standUuid, "ArmorStand");
+
+                ItemStack playerItem = materialToItem(armorEvent.getItemKey());
+                ItemStack standItem = materialToItem(armorEvent.getArmorStandItemKey());
+
+                EquipmentSlot slot = EquipmentSlot.HAND;
+                if (!armorEvent.getSlot().isEmpty()) {
+                    try {
+                        slot = EquipmentSlot.valueOf(armorEvent.getSlot());
+                    } catch (IllegalArgumentException ignored) {
+                        slot = EquipmentSlot.HAND;
+                    }
+                }
+                yield new PlayerArmorStandManipulateEvent(player, armorStand, playerItem, standItem, slot);
             }
             case PLAYER_CHAT -> {
                 PlayerChatEvent chatEvent = event.getPlayerChat();
@@ -504,6 +533,25 @@ public class PatchBukkitEventFactory {
                     .setAnimationType(animationEvent.getAnimationType().name())
                     .build()
             );
+        } else if (event instanceof PlayerArmorStandManipulateEvent armorEvent) {
+            ItemStack playerItem = armorEvent.getPlayerItem();
+            ItemStack standItem = armorEvent.getArmorStandItem();
+            String playerKey = playerItem != null ? playerItem.getType().getKey().toString() : "minecraft:air";
+            String standKey = standItem != null ? standItem.getType().getKey().toString() : "minecraft:air";
+            String slot = armorEvent.getSlot() != null ? armorEvent.getSlot().name() : "HAND";
+            eventBuilder.setPlayerArmorStandManipulate(
+                patchbukkit.events.PlayerArmorStandManipulateEvent.newBuilder()
+                    .setPlayerUuid(UUID.newBuilder()
+                        .setValue(armorEvent.getPlayer().getUniqueId().toString())
+                        .build())
+                    .setArmorStandUuid(UUID.newBuilder()
+                        .setValue(armorEvent.getRightClicked().getUniqueId().toString())
+                        .build())
+                    .setItemKey(playerKey)
+                    .setArmorStandItemKey(standKey)
+                    .setSlot(slot)
+                    .build()
+            );
         } else if (event instanceof AsyncPlayerChatEvent chatEvent) {
             var playerEventBuilder = patchbukkit.events.PlayerChatEvent.newBuilder()
                 .setPlayerUuid(UUID.newBuilder()
@@ -665,5 +713,20 @@ public class PatchBukkitEventFactory {
                 return null;
             }
         }
+    }
+
+    @NotNull
+    private static ItemStack materialToItem(@NotNull String key) {
+        if (key.isEmpty()) {
+            return new ItemStack(Material.AIR);
+        }
+        Material material = Material.matchMaterial(key);
+        if (material == null) {
+            material = Material.matchMaterial("minecraft:" + key);
+        }
+        if (material == null) {
+            material = Material.AIR;
+        }
+        return new ItemStack(material);
     }
 }

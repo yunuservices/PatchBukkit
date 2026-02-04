@@ -11,6 +11,7 @@ use pumpkin::plugin::player::player_login::PlayerLoginEvent;
 use pumpkin::plugin::player::player_pre_login::PlayerPreLoginEvent;
 use pumpkin::plugin::player::player_advancement_done::PlayerAdvancementDoneEvent;
 use pumpkin::plugin::player::player_animation::PlayerAnimationEvent;
+use pumpkin::plugin::player::player_armor_stand_manipulate::PlayerArmorStandManipulateEvent;
 use pumpkin::plugin::player::player_leave::PlayerLeaveEvent;
 use pumpkin::plugin::player::player_move::PlayerMoveEvent;
 use pumpkin::plugin::player::player_teleport::PlayerTeleportEvent;
@@ -155,6 +156,23 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
                             pumpkin::plugin::player::player_animation::PlayerAnimationEvent,
                             PatchBukkitEventHandler<
                                 pumpkin::plugin::player::player_animation::PlayerAnimationEvent,
+                            >,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.player.PlayerArmorStandManipulateEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::player::player_armor_stand_manipulate::PlayerArmorStandManipulateEvent,
+                            PatchBukkitEventHandler<
+                                pumpkin::plugin::player::player_armor_stand_manipulate::PlayerArmorStandManipulateEvent,
                             >,
                         >(
                             Arc::new(PatchBukkitEventHandler::new(
@@ -474,6 +492,24 @@ pub fn ffi_native_bridge_call_event_impl(request: CallEventRequest) -> Option<Ca
                     let pumpkin_event = PlayerAnimationEvent::new(
                         player,
                         player_animation_event_data.animation_type,
+                    );
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
+                Data::PlayerArmorStandManipulate(player_armor_event_data) => {
+                    let uuid =
+                        uuid::Uuid::parse_str(&player_armor_event_data.player_uuid?.value).ok()?;
+                    let player = context.server.get_player_by_uuid(uuid)?;
+                    let armor_uuid = uuid::Uuid::parse_str(
+                        &player_armor_event_data.armor_stand_uuid?.value,
+                    )
+                    .ok()?;
+                    let pumpkin_event = PlayerArmorStandManipulateEvent::new(
+                        player,
+                        armor_uuid,
+                        player_armor_event_data.item_key,
+                        player_armor_event_data.armor_stand_item_key,
+                        player_armor_event_data.slot,
                     );
                     context.server.plugin_manager.fire(pumpkin_event).await;
                     Some(true)

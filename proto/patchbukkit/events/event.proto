@@ -33,6 +33,7 @@ message Event {
     AsyncPlayerPreLoginEvent async_player_pre_login = 18;
     PlayerAdvancementDoneEvent player_advancement_done = 19;
     PlayerAnimationEvent player_animation = 20;
+    PlayerArmorStandManipulateEvent player_armor_stand_manipulate = 21;
   }
 }
 

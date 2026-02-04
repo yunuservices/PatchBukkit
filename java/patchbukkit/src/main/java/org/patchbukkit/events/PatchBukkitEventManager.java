@@ -201,6 +201,27 @@ public class PatchBukkitEventManager {
                     ).build()
                 );
                 break;
+            case "org.bukkit.event.player.PlayerArmorStandManipulateEvent":
+                var armorEvent = (org.bukkit.event.player.PlayerArmorStandManipulateEvent) event;
+                String playerKey = armorEvent.getPlayerItem() != null
+                    ? armorEvent.getPlayerItem().getType().getKey().toString()
+                    : "minecraft:air";
+                String standKey = armorEvent.getArmorStandItem() != null
+                    ? armorEvent.getArmorStandItem().getType().getKey().toString()
+                    : "minecraft:air";
+                String slot = armorEvent.getSlot() != null ? armorEvent.getSlot().name() : "HAND";
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setPlayerArmorStandManipulate(
+                        patchbukkit.events.PlayerArmorStandManipulateEvent.newBuilder()
+                            .setPlayerUuid(BridgeUtils.convertUuid(armorEvent.getPlayer().getUniqueId()))
+                            .setArmorStandUuid(BridgeUtils.convertUuid(armorEvent.getRightClicked().getUniqueId()))
+                            .setItemKey(playerKey)
+                            .setArmorStandItemKey(standKey)
+                            .setSlot(slot)
+                            .build()
+                    ).build()
+                );
+                break;
             case "org.bukkit.event.player.AsyncPlayerChatEvent":
                 var chatEvent = (org.bukkit.event.player.AsyncPlayerChatEvent) event;
                 var chatBuilder = PlayerChatEvent.newBuilder()

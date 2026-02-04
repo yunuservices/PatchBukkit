@@ -77,3 +77,11 @@ message PlayerAnimationEvent {
   patchbukkit.common.UUID player_uuid = 1;
   string animation_type = 2;
 }
+
+message PlayerArmorStandManipulateEvent {
+  patchbukkit.common.UUID player_uuid = 1;
+  patchbukkit.common.UUID armor_stand_uuid = 2;
+  string item_key = 3;
+  string armor_stand_item_key = 4;
+  string slot = 5;
+}

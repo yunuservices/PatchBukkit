@@ -20,6 +20,7 @@ use crate::proto::patchbukkit::events::{
     EntityDamageEvent, EntityDeathEvent, EntitySpawnEvent,
     PlayerLoginEvent, PlayerTeleportEvent, PlayerChangeWorldEvent, PlayerGamemodeChangeEvent,
     AsyncPlayerPreLoginEvent, PlayerAdvancementDoneEvent, PlayerAnimationEvent,
+    PlayerArmorStandManipulateEvent,
 };
 
 pub struct EventContext {
@@ -215,6 +216,54 @@ impl PatchBukkitEvent for pumpkin::plugin::player::player_animation::PlayerAnima
     }
 
     fn apply_modifications(&mut self, _server: &Arc<Server>, _data: Data) -> Option<()> {
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::player::player_armor_stand_manipulate::PlayerArmorStandManipulateEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::PlayerArmorStandManipulate(
+                    PlayerArmorStandManipulateEvent {
+                        player_uuid: Some(Uuid {
+                            value: self.player.gameprofile.id.to_string(),
+                        }),
+                        armor_stand_uuid: Some(Uuid {
+                            value: self.armor_stand_uuid.to_string(),
+                        }),
+                        item_key: self.item_key.clone(),
+                        armor_stand_item_key: self.armor_stand_item_key.clone(),
+                        slot: self.slot.clone(),
+                    },
+                )),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::PlayerArmorStandManipulate(event) => {
+                if !event.item_key.is_empty() {
+                    self.item_key = event.item_key;
+                }
+                if !event.armor_stand_item_key.is_empty() {
+                    self.armor_stand_item_key = event.armor_stand_item_key;
+                }
+                if !event.slot.is_empty() {
+                    self.slot = event.slot;
+                }
+                if let Some(uuid) = event.armor_stand_uuid {
+                    self.armor_stand_uuid = uuid::Uuid::from_str(&uuid.value).ok()?;
+                }
+            }
+            _ => {}
+        }
+
         Some(())
     }
 }
