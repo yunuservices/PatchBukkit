@@ -7,22 +7,21 @@ use crate::proto::patchbukkit::{
 pub fn ffi_native_bridge_get_abilities_impl(request: Uuid) -> Option<Abilities> {
     let ctx = CALLBACK_CONTEXT.get()?;
     let player_uuid = uuid::Uuid::parse_str(&request.value).ok()?;
-    let mut abilities = Abilities::default();
     let player = ctx.plugin_context.server.get_player_by_uuid(player_uuid)?;
-    let pumpkin_abilities = tokio::task::block_in_place(|| {
+    let abilities = tokio::task::block_in_place(|| {
         ctx.runtime
             .block_on(async { player.abilities.lock().await })
     });
 
-    abilities.invulnerable = pumpkin_abilities.invulnerable;
-    abilities.flying = pumpkin_abilities.flying;
-    abilities.allow_flying = pumpkin_abilities.allow_flying;
-    abilities.creative = pumpkin_abilities.creative;
-    abilities.allow_modify_world = pumpkin_abilities.allow_modify_world;
-    abilities.fly_speed = pumpkin_abilities.fly_speed;
-    abilities.walk_speed = pumpkin_abilities.walk_speed;
-
-    return Some(abilities);
+    Some(Abilities {
+        invulnerable: abilities.invulnerable,
+        flying: abilities.flying,
+        allow_flying: abilities.allow_flying,
+        creative: abilities.creative,
+        allow_modify_world: abilities.allow_modify_world,
+        fly_speed: abilities.fly_speed,
+        walk_speed: abilities.walk_speed,
+    })
 }
 
 pub fn ffi_native_bridge_set_abilities_impl(request: SetAbilitiesRequest) -> Option<bool> {

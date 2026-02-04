@@ -122,5 +122,3 @@ but in this project, it is very important. The build process is split into modul
 1. `rust/build/main.rs` - Entry point that orchestrates the build
 2. `rust/build/java.rs` - Embeds all transitive dependencies of the `paper-api` Java library and the PatchBukkit jar
 3. `rust/build/protobufs.rs` - Generates Rust protobuf code and FFI entry points from `.proto` definitions
-
-## Adding a new FFI method

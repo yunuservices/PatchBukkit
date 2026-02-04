@@ -28,24 +28,20 @@ pub fn ffi_native_bridge_get_location_impl(entity_uuid: Uuid) -> Option<Location
         let yaw = entity.yaw.load();
         let pitch = entity.pitch.load();
 
-        let mut response_position = Vec3::default();
-        response_position.x = position.x;
-        response_position.y = position.y;
-        response_position.z = position.z;
-
-        let mut world_uuid = Uuid::default();
-        world_uuid.value = world.to_string();
-
-        let mut response_world = World::default();
-        response_world.uuid = Some(world_uuid);
-
-        let mut location = Location::default();
-        location.pitch = pitch;
-        location.position = Some(response_position);
-        location.world = Some(response_world);
-        location.yaw = yaw;
-
-        return Some(location);
+        return Some(Location {
+            world: Some(World {
+                uuid: Some(Uuid {
+                    value: world.to_string(),
+                }),
+            }),
+            position: Some(Vec3 {
+                x: position.x,
+                y: position.y,
+                z: position.z,
+            }),
+            yaw,
+            pitch,
+        });
     }
 
     None

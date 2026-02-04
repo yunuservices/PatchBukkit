@@ -63,7 +63,7 @@ impl FfiServiceGenerator {
     fn package_to_module_path(&self, package: &str) -> String {
         package
             .split('.')
-            .map(|s| to_snake_case(s))
+            .map(to_snake_case)
             .collect::<Vec<_>>()
             .join("::")
     }
@@ -92,7 +92,13 @@ impl ServiceGenerator for FfiServiceGenerator {
             });
 
             buf.push_str(&format!(
-                r#"
+                r#"/// FFI function for {fn_name}
+///
+/// # Safety
+///
+/// - `input_ptr` must be a valid pointer to `input_len` bytes of memory
+/// - `output_len` must be a valid pointer to write the output length
+/// - The caller is responsible for freeing the returned pointer using `ffi_free_bytes`
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn {fn_name}(
     input_ptr: *const u8,
@@ -170,7 +176,13 @@ pub fn setup_protobufs(base: PathBuf) {
 
     writeln!(
         file,
-        r#"
+        r#"/// Frees bytes allocated by FFI functions
+///
+/// # Safety
+///
+/// - `ptr` must have been returned by an FFI function in this module
+/// - `len` must be the length that was written to `output_len`
+/// - The pointer must not have been freed previously
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn ffi_free_bytes(ptr: *mut u8, len: usize) {{
     if !ptr.is_null() && len > 0 {{

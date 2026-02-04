@@ -10,21 +10,19 @@ pub fn ffi_native_bridge_get_registry_data_impl(
         val if val == RegistryType::SoundEvent as i32 => {
             let sounds = pumpkin_data::sound::Sound::slice()
                 .iter()
-                .map(|s| {
-                    let mut sound_event = SoundEvent::default();
-                    sound_event.id = *s as u32;
-                    sound_event.name = s.to_name().to_string();
-                    sound_event
+                .map(|s| SoundEvent {
+                    id: *s as u32,
+                    name: s.to_name().to_string(),
                 })
                 .collect::<Vec<_>>();
-            let mut data = SoundEventRegistryData::default();
-            data.sound_events = sounds;
-            Registry::SoundEvent(data)
+            Registry::SoundEvent(SoundEventRegistryData {
+                sound_events: sounds,
+            })
         }
         _ => unreachable!(),
     };
 
-    let mut response = GetRegistryDataResponse::default();
-    response.registry = Some(registry);
-    Some(response)
+    Some(GetRegistryDataResponse {
+        registry: Some(registry),
+    })
 }

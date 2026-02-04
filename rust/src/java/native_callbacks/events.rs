@@ -74,27 +74,19 @@ pub fn ffi_native_bridge_call_event_impl(request: CallEventRequest) -> Option<Ca
         ctx.runtime.block_on(async {
             match event_data {
                 EventData::PlayerJoin(player_join_event_data) => {
-                    if let Ok(uuid) =
-                        uuid::Uuid::parse_str(&player_join_event_data.player_uuid?.value)
-                    {
-                        if let Some(player) = context.server.get_player_by_uuid(uuid) {
-                            let pumpkin_event = PlayerJoinEvent::new(
-                                player,
-                                TextComponent::from_legacy_string(
-                                    &player_join_event_data.join_message,
-                                ),
-                            );
-                            context.server.plugin_manager.fire(pumpkin_event).await;
-                            return Some(true);
-                        }
-                    }
-                    Some(false)
+                    let uuid =
+                        uuid::Uuid::parse_str(&player_join_event_data.player_uuid?.value).ok()?;
+                    let player = context.server.get_player_by_uuid(uuid)?;
+                    let pumpkin_event = PlayerJoinEvent::new(
+                        player,
+                        TextComponent::from_legacy_string(&player_join_event_data.join_message),
+                    );
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
                 }
             }
         })
-    });
+    })?;
 
-    let mut response = CallEventResponse::default();
-    response.handled = handled?;
-    Some(response)
+    Some(CallEventResponse { handled })
 }
