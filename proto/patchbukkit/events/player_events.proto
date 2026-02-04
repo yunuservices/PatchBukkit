@@ -122,3 +122,8 @@ message PlayerBucketEntityEvent {
   string entity_bucket_key = 5;
   string hand = 6;
 }
+
+message PlayerChangedMainHandEvent {
+  patchbukkit.common.UUID player_uuid = 1;
+  string main_hand = 2;
+}

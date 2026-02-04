@@ -316,6 +316,20 @@ public class PatchBukkitEventManager {
                     ).build()
                 );
                 break;
+            case "org.bukkit.event.player.PlayerChangedMainHandEvent":
+                var mainHandEvent = (org.bukkit.event.player.PlayerChangedMainHandEvent) event;
+                String mainHand = mainHandEvent.getMainHand() != null
+                    ? mainHandEvent.getMainHand().name()
+                    : "RIGHT";
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setPlayerChangedMainHand(
+                        patchbukkit.events.PlayerChangedMainHandEvent.newBuilder()
+                            .setPlayerUuid(BridgeUtils.convertUuid(mainHandEvent.getPlayer().getUniqueId()))
+                            .setMainHand(mainHand)
+                            .build()
+                    ).build()
+                );
+                break;
             case "org.bukkit.event.player.AsyncPlayerChatEvent":
                 var chatEvent = (org.bukkit.event.player.AsyncPlayerChatEvent) event;
                 var chatBuilder = PlayerChatEvent.newBuilder()

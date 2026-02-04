@@ -7,6 +7,7 @@ use pumpkin::plugin::{BoxFuture, Cancellable, EventHandler, Payload};
 use pumpkin::server::Server;
 use pumpkin_api_macros::with_runtime;
 use pumpkin_data::{Block, BlockDirection};
+use pumpkin_util::Hand;
 use pumpkin_util::math::vector3::Vector3;
 use pumpkin_util::text::TextComponent;
 use tokio::sync::{mpsc, oneshot};
@@ -23,6 +24,7 @@ use crate::proto::patchbukkit::events::{
     PlayerArmorStandManipulateEvent,
     PlayerBedEnterEvent, PlayerBedLeaveEvent,
     PlayerBucketEmptyEvent, PlayerBucketFillEvent, PlayerBucketEntityEvent,
+    PlayerChangedMainHandEvent,
 };
 
 pub struct EventContext {
@@ -479,6 +481,37 @@ impl PatchBukkitEvent for pumpkin::plugin::player::player_bucket_entity::PlayerB
                 }
                 if !event.hand.is_empty() {
                     self.hand = event.hand;
+                }
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::player::player_changed_main_hand::PlayerChangedMainHandEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::PlayerChangedMainHand(PlayerChangedMainHandEvent {
+                    player_uuid: Some(Uuid {
+                        value: self.player.gameprofile.id.to_string(),
+                    }),
+                    main_hand: bukkit_main_hand(self.main_hand),
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::PlayerChangedMainHand(event) => {
+                if let Ok(uuid) = uuid::Uuid::from_str(&event.player_uuid?.value) {
+                    server.get_player_by_uuid(uuid)?;
                 }
             }
             _ => {}
@@ -1090,6 +1123,13 @@ fn bukkit_block_face_from_string(face: &str) -> Option<BlockDirection> {
         "WEST" => Some(BlockDirection::West),
         "EAST" => Some(BlockDirection::East),
         _ => None,
+    }
+}
+
+fn bukkit_main_hand(hand: Hand) -> String {
+    match hand {
+        Hand::Left => "LEFT".to_string(),
+        Hand::Right => "RIGHT".to_string(),
     }
 }
 

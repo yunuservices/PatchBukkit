@@ -26,6 +26,7 @@ import org.bukkit.event.player.PlayerBedLeaveEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.player.PlayerBucketEntityEvent;
+import org.bukkit.event.player.PlayerChangedMainHandEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.BroadcastMessageEvent;
@@ -46,6 +47,7 @@ import org.patchbukkit.entity.PatchBukkitArmorStand;
 import org.bukkit.block.BlockFace;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.MainHand;
 import org.bukkit.block.Block;
 import org.bukkit.Material;
 import org.bukkit.GameMode;
@@ -354,6 +356,20 @@ public class PatchBukkitEventFactory {
                     }
                 }
                 yield new PlayerBucketEntityEvent(player, entity, originalBucket, entityBucket, slot);
+            }
+            case PLAYER_CHANGED_MAIN_HAND -> {
+                patchbukkit.events.PlayerChangedMainHandEvent mainHandEvent = event.getPlayerChangedMainHand();
+                Player player = getPlayer(mainHandEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+                MainHand mainHand = MainHand.RIGHT;
+                if (!mainHandEvent.getMainHand().isEmpty()) {
+                    try {
+                        mainHand = MainHand.valueOf(mainHandEvent.getMainHand());
+                    } catch (IllegalArgumentException ignored) {
+                        mainHand = MainHand.RIGHT;
+                    }
+                }
+                yield new PlayerChangedMainHandEvent(player, mainHand);
             }
             case PLAYER_CHAT -> {
                 PlayerChatEvent chatEvent = event.getPlayerChat();
@@ -749,6 +765,18 @@ public class PatchBukkitEventFactory {
                     .setOriginalBucketKey(originalBucket)
                     .setEntityBucketKey(entityBucket)
                     .setHand(hand)
+                    .build()
+            );
+        } else if (event instanceof PlayerChangedMainHandEvent mainHandEvent) {
+            String mainHand = mainHandEvent.getMainHand() != null
+                ? mainHandEvent.getMainHand().name()
+                : "RIGHT";
+            eventBuilder.setPlayerChangedMainHand(
+                patchbukkit.events.PlayerChangedMainHandEvent.newBuilder()
+                    .setPlayerUuid(UUID.newBuilder()
+                        .setValue(mainHandEvent.getPlayer().getUniqueId().toString())
+                        .build())
+                    .setMainHand(mainHand)
                     .build()
             );
         } else if (event instanceof AsyncPlayerChatEvent chatEvent) {

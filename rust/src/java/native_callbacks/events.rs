@@ -17,6 +17,7 @@ use pumpkin::plugin::player::player_bed_leave::PlayerBedLeaveEvent;
 use pumpkin::plugin::player::player_bucket_empty::PlayerBucketEmptyEvent;
 use pumpkin::plugin::player::player_bucket_fill::PlayerBucketFillEvent;
 use pumpkin::plugin::player::player_bucket_entity::PlayerBucketEntityEvent;
+use pumpkin::plugin::player::player_changed_main_hand::PlayerChangedMainHandEvent;
 use pumpkin::plugin::player::player_leave::PlayerLeaveEvent;
 use pumpkin::plugin::player::player_move::PlayerMoveEvent;
 use pumpkin::plugin::player::player_teleport::PlayerTeleportEvent;
@@ -30,6 +31,7 @@ use pumpkin_data::item::Item;
 use pumpkin_world::item::ItemStack;
 use pumpkin_util::math::vector3::Vector3;
 use pumpkin_util::text::TextComponent;
+use pumpkin_util::Hand;
 use tokio::sync::Mutex;
 
 use crate::events::handler::PatchBukkitEventHandler;
@@ -263,6 +265,23 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
                             pumpkin::plugin::player::player_bucket_entity::PlayerBucketEntityEvent,
                             PatchBukkitEventHandler<
                                 pumpkin::plugin::player::player_bucket_entity::PlayerBucketEntityEvent,
+                            >,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.player.PlayerChangedMainHandEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::player::player_changed_main_hand::PlayerChangedMainHandEvent,
+                            PatchBukkitEventHandler<
+                                pumpkin::plugin::player::player_changed_main_hand::PlayerChangedMainHandEvent,
                             >,
                         >(
                             Arc::new(PatchBukkitEventHandler::new(
@@ -693,6 +712,18 @@ pub fn ffi_native_bridge_call_event_impl(request: CallEventRequest) -> Option<Ca
                     context.server.plugin_manager.fire(pumpkin_event).await;
                     Some(true)
                 }
+                Data::PlayerChangedMainHand(player_changed_main_hand_event_data) => {
+                    let uuid =
+                        uuid::Uuid::parse_str(&player_changed_main_hand_event_data.player_uuid?.value).ok()?;
+                    let player = context.server.get_player_by_uuid(uuid)?;
+                    let main_hand = main_hand_from_bukkit(
+                        &player_changed_main_hand_event_data.main_hand,
+                    )
+                    .unwrap_or(Hand::Right);
+                    let pumpkin_event = PlayerChangedMainHandEvent::new(player, main_hand);
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
                 Data::PlayerTeleport(player_teleport_event_data) => {
                     let uuid =
                         uuid::Uuid::parse_str(&player_teleport_event_data.player_uuid?.value).ok()?;
@@ -974,6 +1005,14 @@ fn gamemode_from_bukkit(mode: &str) -> Option<pumpkin_util::GameMode> {
         "CREATIVE" => Some(pumpkin_util::GameMode::Creative),
         "ADVENTURE" => Some(pumpkin_util::GameMode::Adventure),
         "SPECTATOR" => Some(pumpkin_util::GameMode::Spectator),
+        _ => None,
+    }
+}
+
+fn main_hand_from_bukkit(hand: &str) -> Option<Hand> {
+    match hand {
+        "LEFT" => Some(Hand::Left),
+        "RIGHT" => Some(Hand::Right),
         _ => None,
     }
 }
