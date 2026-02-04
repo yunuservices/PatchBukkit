@@ -30,6 +30,7 @@ import org.bukkit.event.player.PlayerBucketEntityEvent;
 import org.bukkit.event.player.PlayerChangedMainHandEvent;
 import org.bukkit.event.player.PlayerRegisterChannelEvent;
 import org.bukkit.event.player.PlayerUnregisterChannelEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.BroadcastMessageEvent;
@@ -47,6 +48,7 @@ import org.patchbukkit.world.PatchBukkitWorld;
 import org.patchbukkit.entity.PatchBukkitEntity;
 import org.patchbukkit.entity.PatchBukkitLivingEntity;
 import org.patchbukkit.entity.PatchBukkitArmorStand;
+import org.patchbukkit.entity.PatchBukkitItem;
 import org.bukkit.block.BlockFace;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.EquipmentSlot;
@@ -417,6 +419,20 @@ public class PatchBukkitEventFactory {
                 Player player = getPlayer(commandEvent.getPlayerUuid().getValue());
                 if (player == null) yield null;
                 yield new PlayerCommandSendEvent(player, new HashSet<>(commandEvent.getCommandsList()));
+            }
+            case PLAYER_DROP_ITEM -> {
+                patchbukkit.events.PlayerDropItemEvent dropEvent = event.getPlayerDropItem();
+                Player player = getPlayer(dropEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+                java.util.UUID itemUuid;
+                try {
+                    itemUuid = java.util.UUID.fromString(dropEvent.getItemUuid().getValue());
+                } catch (IllegalArgumentException e) {
+                    yield null;
+                }
+                ItemStack stack = materialToItem(dropEvent.getItemKey(), dropEvent.getItemAmount());
+                PatchBukkitItem item = new PatchBukkitItem(itemUuid, stack);
+                yield new PlayerDropItemEvent(player, item);
             }
             case PLAYER_INTERACT -> {
                 patchbukkit.events.PlayerInteractEvent interactEvent = event.getPlayerInteract();
@@ -850,6 +866,26 @@ public class PatchBukkitEventFactory {
                     .build());
             builder.addAllCommands(commandSendEvent.getCommands());
             eventBuilder.setPlayerCommandSend(builder.build());
+        } else if (event instanceof PlayerDropItemEvent dropEvent) {
+            var item = dropEvent.getItemDrop();
+            String itemKey = "minecraft:air";
+            int itemAmount = 0;
+            if (item != null && item.getItemStack() != null) {
+                itemKey = item.getItemStack().getType().getKey().toString();
+                itemAmount = item.getItemStack().getAmount();
+            }
+            eventBuilder.setPlayerDropItem(
+                patchbukkit.events.PlayerDropItemEvent.newBuilder()
+                    .setPlayerUuid(UUID.newBuilder()
+                        .setValue(dropEvent.getPlayer().getUniqueId().toString())
+                        .build())
+                    .setItemUuid(UUID.newBuilder()
+                        .setValue(item != null ? item.getUniqueId().toString() : java.util.UUID.randomUUID().toString())
+                        .build())
+                    .setItemKey(itemKey)
+                    .setItemAmount(itemAmount)
+                    .build()
+            );
         } else if (event instanceof PlayerInteractEvent interactEvent) {
             var block = interactEvent.getClickedBlock();
             var location = block != null ? block.getLocation() : null;
@@ -986,6 +1022,13 @@ public class PatchBukkitEventFactory {
                 return null;
             }
         }
+    }
+
+    @NotNull
+    private static ItemStack materialToItem(@NotNull String key, int amount) {
+        ItemStack stack = materialToItem(key);
+        stack.setAmount(Math.max(amount, 0));
+        return stack;
     }
 
     @NotNull

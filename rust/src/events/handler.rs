@@ -7,9 +7,11 @@ use pumpkin::plugin::{BoxFuture, Cancellable, EventHandler, Payload};
 use pumpkin::server::Server;
 use pumpkin_api_macros::with_runtime;
 use pumpkin_data::{Block, BlockDirection};
+use pumpkin_data::item::Item;
 use pumpkin_util::Hand;
 use pumpkin_util::math::vector3::Vector3;
 use pumpkin_util::text::TextComponent;
+use pumpkin_world::item::ItemStack;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::java::jvm::commands::JvmCommand;
@@ -25,7 +27,7 @@ use crate::proto::patchbukkit::events::{
     PlayerBedEnterEvent, PlayerBedLeaveEvent,
     PlayerBucketEmptyEvent, PlayerBucketFillEvent, PlayerBucketEntityEvent,
     PlayerChangedMainHandEvent,
-    PlayerRegisterChannelEvent, PlayerUnregisterChannelEvent,
+    PlayerRegisterChannelEvent, PlayerUnregisterChannelEvent, PlayerDropItemEvent,
 };
 
 pub struct EventContext {
@@ -875,6 +877,60 @@ impl PatchBukkitEvent for pumpkin::plugin::player::player_command_send::PlayerCo
     }
 }
 
+impl PatchBukkitEvent for pumpkin::plugin::player::player_drop_item::PlayerDropItemEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::PlayerDropItem(PlayerDropItemEvent {
+                    player_uuid: Some(Uuid {
+                        value: self.player.gameprofile.id.to_string(),
+                    }),
+                    item_uuid: Some(Uuid {
+                        value: self.item_uuid.to_string(),
+                    }),
+                    item_key: item_to_key(self.item_stack.item),
+                    item_amount: i32::from(self.item_stack.item_count),
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::PlayerDropItem(event) => {
+                if let Some(uuid) = event.item_uuid {
+                    if let Ok(item_uuid) = uuid::Uuid::from_str(&uuid.value) {
+                        self.item_uuid = item_uuid;
+                    }
+                }
+                let mut key = if event.item_key.is_empty() {
+                    None
+                } else {
+                    Some(event.item_key)
+                };
+                let mut amount = if event.item_amount > 0 {
+                    Some(event.item_amount as u8)
+                } else {
+                    None
+                };
+
+                if key.is_some() || amount.is_some() {
+                    let fallback_key = item_to_key(self.item_stack.item);
+                    let key = key.take().unwrap_or(fallback_key);
+                    let count = amount.take().unwrap_or(self.item_stack.item_count);
+                    self.item_stack = item_stack_from_key(&key, count);
+                }
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
 impl PatchBukkitEvent for pumpkin::plugin::player::player_interact_event::PlayerInteractEvent {
     fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
         let world_uuid = self.player.world().uuid;
@@ -1165,6 +1221,16 @@ fn location_to_vec3(location: Location) -> Option<Vector3<f64>> {
 
 fn block_to_key(block: &Block) -> String {
     format!("minecraft:{}", block.name)
+}
+
+fn item_to_key(item: &Item) -> String {
+    format!("minecraft:{}", item.registry_key)
+}
+
+fn item_stack_from_key(key: &str, amount: u8) -> ItemStack {
+    let trimmed = key.strip_prefix("minecraft:").unwrap_or(key);
+    let item = Item::from_registry_key(trimmed).unwrap_or(&Item::AIR);
+    ItemStack::new(amount, item)
 }
 
 fn interact_action_to_bukkit(action: &pumpkin::plugin::player::player_interact_event::InteractAction) -> String {

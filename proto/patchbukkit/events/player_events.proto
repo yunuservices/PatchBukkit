@@ -65,6 +65,13 @@ message PlayerCommandSendEvent {
   repeated string commands = 2;
 }
 
+message PlayerDropItemEvent {
+  patchbukkit.common.UUID player_uuid = 1;
+  patchbukkit.common.UUID item_uuid = 2;
+  string item_key = 3;
+  int32 item_amount = 4;
+}
+
 message AsyncPlayerPreLoginEvent {
   string name = 1;
   patchbukkit.common.UUID player_uuid = 2;

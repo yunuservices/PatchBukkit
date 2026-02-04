@@ -386,6 +386,28 @@ public class PatchBukkitEventManager {
                     ).build()
                 );
                 break;
+            case "org.bukkit.event.player.PlayerDropItemEvent":
+                var dropEvent = (org.bukkit.event.player.PlayerDropItemEvent) event;
+                var item = dropEvent.getItemDrop();
+                String dropKey = "minecraft:air";
+                int dropAmount = 0;
+                java.util.UUID itemUuid = java.util.UUID.randomUUID();
+                if (item != null && item.getItemStack() != null) {
+                    dropKey = item.getItemStack().getType().getKey().toString();
+                    dropAmount = item.getItemStack().getAmount();
+                    itemUuid = item.getUniqueId();
+                }
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setPlayerDropItem(
+                        patchbukkit.events.PlayerDropItemEvent.newBuilder()
+                            .setPlayerUuid(BridgeUtils.convertUuid(dropEvent.getPlayer().getUniqueId()))
+                            .setItemUuid(BridgeUtils.convertUuid(itemUuid))
+                            .setItemKey(dropKey)
+                            .setItemAmount(dropAmount)
+                            .build()
+                    ).build()
+                );
+                break;
             case "org.bukkit.event.player.PlayerInteractEvent":
                 var interactEvent = (org.bukkit.event.player.PlayerInteractEvent) event;
                 var clicked = interactEvent.getClickedBlock();
