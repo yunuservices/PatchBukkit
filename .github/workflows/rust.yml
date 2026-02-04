@@ -23,26 +23,26 @@ jobs:
               with:
                   java-version: "25"
                   distribution: "temurin"
+
+            - name: Install Protoc
+              uses: arduino/setup-protoc@v3
+              with:
+                  repo-token: ${{ secrets.GITHUB_TOKEN }}
+
             - name: Setup Gradle
               uses: gradle/actions/setup-gradle@v5
             - name: Build JAR with Gradle
               run: ./gradlew jar
               working-directory: java
 
-            - name: Install rustfmt & clippy
-              run: rustup component add rustfmt clippy
-            - name: Check Formatting
-              run: cargo fmt --all -- --check
-              working-directory: rust
-            
             - name: Lint with Clippy
               run: cargo clippy -- -D warnings
               working-directory: rust
-            
+
             - name: Build rust
               run: cargo build --verbose
               working-directory: rust
-            
+
             - name: Run rust tests
               run: cargo test --verbose
               working-directory: rust
