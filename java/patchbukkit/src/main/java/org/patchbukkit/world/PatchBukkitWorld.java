@@ -149,7 +149,17 @@ public class PatchBukkitWorld
 
     @Override
     public @NotNull Block getBlockAt(int x, int y, int z) {
-        return PatchBukkitBlock.create(this, x, y, z, "minecraft:air");
+        var request = patchbukkit.block.GetBlockRequest.newBuilder()
+            .setWorld(patchbukkit.common.World.newBuilder()
+                .setUuid(org.patchbukkit.bridge.BridgeUtils.convertUuid(this.uuid))
+                .build())
+            .setX(x)
+            .setY(y)
+            .setZ(z)
+            .build();
+        var response = patchbukkit.bridge.NativeBridgeFfi.getBlock(request);
+        String blockKey = response != null ? response.getBlockKey() : "minecraft:air";
+        return PatchBukkitBlock.create(this, x, y, z, blockKey);
     }
 
     @Override
