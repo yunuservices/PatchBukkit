@@ -479,6 +479,46 @@ public class PatchBukkitEventManager {
                     ).build()
                 );
                 break;
+            case "org.bukkit.event.player.PlayerInteractAtEntityEvent":
+                var interactAtEvent = (org.bukkit.event.player.PlayerInteractAtEntityEvent) event;
+                var clickedEntity = interactAtEvent.getRightClicked();
+                var pos = interactAtEvent.getClickedPosition();
+                var interactAtBuilder = patchbukkit.events.PlayerInteractAtEntityEvent.newBuilder()
+                    .setPlayerUuid(BridgeUtils.convertUuid(interactAtEvent.getPlayer().getUniqueId()))
+                    .setEntityUuid(BridgeUtils.convertUuid(clickedEntity.getUniqueId()))
+                    .setEntityType(clickedEntity.getType().name());
+                if (interactAtEvent.getHand() != null) {
+                    interactAtBuilder.setHand(interactAtEvent.getHand().name());
+                }
+                if (pos != null) {
+                    interactAtBuilder.setClickedPosition(patchbukkit.common.Vec3.newBuilder()
+                        .setX(pos.getX())
+                        .setY(pos.getY())
+                        .setZ(pos.getZ())
+                        .build());
+                }
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setPlayerInteractAtEntity(
+                        interactAtBuilder.build()
+                    ).build()
+                );
+                break;
+            case "org.bukkit.event.player.PlayerInteractEntityEvent":
+                var interactEntityEvent = (org.bukkit.event.player.PlayerInteractEntityEvent) event;
+                var rightClicked = interactEntityEvent.getRightClicked();
+                var interactEntityBuilder = patchbukkit.events.PlayerInteractEntityEvent.newBuilder()
+                    .setPlayerUuid(BridgeUtils.convertUuid(interactEntityEvent.getPlayer().getUniqueId()))
+                    .setEntityUuid(BridgeUtils.convertUuid(rightClicked.getUniqueId()))
+                    .setEntityType(rightClicked.getType().name());
+                if (interactEntityEvent.getHand() != null) {
+                    interactEntityBuilder.setHand(interactEntityEvent.getHand().name());
+                }
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setPlayerInteractEntity(
+                        interactEntityBuilder.build()
+                    ).build()
+                );
+                break;
             case "org.bukkit.event.player.PlayerInteractEvent":
                 var interactEvent = (org.bukkit.event.player.PlayerInteractEvent) event;
                 var clicked = interactEvent.getClickedBlock();

@@ -29,6 +29,7 @@ use crate::proto::patchbukkit::events::{
     PlayerChangedMainHandEvent,
     PlayerRegisterChannelEvent, PlayerUnregisterChannelEvent, PlayerDropItemEvent,
     PlayerEditBookEvent, PlayerEggThrowEvent, PlayerExpChangeEvent, PlayerFishEvent,
+    PlayerInteractEntityEvent, PlayerInteractAtEntityEvent,
 };
 
 pub struct EventContext {
@@ -1093,6 +1094,100 @@ impl PatchBukkitEvent for pumpkin::plugin::player::player_fish::PlayerFishEvent 
                     self.hand = event.hand;
                 }
                 self.exp_to_drop = event.exp_to_drop;
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::player::player_interact_entity::PlayerInteractEntityEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::PlayerInteractEntity(PlayerInteractEntityEvent {
+                    player_uuid: Some(Uuid {
+                        value: self.player.gameprofile.id.to_string(),
+                    }),
+                    entity_uuid: Some(Uuid {
+                        value: self.entity_uuid.to_string(),
+                    }),
+                    entity_type: self.entity_type.clone(),
+                    hand: self.hand.clone(),
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::PlayerInteractEntity(event) => {
+                if let Some(uuid) = event.entity_uuid {
+                    if let Ok(entity_uuid) = uuid::Uuid::from_str(&uuid.value) {
+                        self.entity_uuid = entity_uuid;
+                    }
+                }
+                if !event.entity_type.is_empty() {
+                    self.entity_type = event.entity_type;
+                }
+                if !event.hand.is_empty() {
+                    self.hand = event.hand;
+                }
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::player::player_interact_at_entity::PlayerInteractAtEntityEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::PlayerInteractAtEntity(PlayerInteractAtEntityEvent {
+                    player_uuid: Some(Uuid {
+                        value: self.player.gameprofile.id.to_string(),
+                    }),
+                    entity_uuid: Some(Uuid {
+                        value: self.entity_uuid.to_string(),
+                    }),
+                    entity_type: self.entity_type.clone(),
+                    hand: self.hand.clone(),
+                    clicked_position: Some(Vec3 {
+                        x: f64::from(self.clicked_position.x),
+                        y: f64::from(self.clicked_position.y),
+                        z: f64::from(self.clicked_position.z),
+                    }),
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::PlayerInteractAtEntity(event) => {
+                if let Some(uuid) = event.entity_uuid {
+                    if let Ok(entity_uuid) = uuid::Uuid::from_str(&uuid.value) {
+                        self.entity_uuid = entity_uuid;
+                    }
+                }
+                if !event.entity_type.is_empty() {
+                    self.entity_type = event.entity_type;
+                }
+                if !event.hand.is_empty() {
+                    self.hand = event.hand;
+                }
+                if let Some(pos) = event.clicked_position {
+                    self.clicked_position = Vector3::new(pos.x as f32, pos.y as f32, pos.z as f32);
+                }
             }
             _ => {}
         }

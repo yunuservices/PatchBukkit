@@ -35,6 +35,8 @@ import org.bukkit.event.player.PlayerEditBookEvent;
 import org.bukkit.event.player.PlayerEggThrowEvent;
 import org.bukkit.event.player.PlayerExpChangeEvent;
 import org.bukkit.event.player.PlayerFishEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.BroadcastMessageEvent;
@@ -60,6 +62,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.MainHand;
 import org.bukkit.inventory.meta.BookMeta;
+import org.bukkit.util.Vector;
 import org.bukkit.block.Block;
 import org.bukkit.Material;
 import org.bukkit.GameMode;
@@ -529,6 +532,52 @@ public class PatchBukkitEventFactory {
                 PlayerFishEvent playerFishEvent = new PlayerFishEvent(player, caught, hook, hand, state);
                 playerFishEvent.setExpToDrop(fishEvent.getExpToDrop());
                 yield playerFishEvent;
+            }
+            case PLAYER_INTERACT_ENTITY -> {
+                patchbukkit.events.PlayerInteractEntityEvent interactEvent = event.getPlayerInteractEntity();
+                Player player = getPlayer(interactEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+                java.util.UUID entityUuid;
+                try {
+                    entityUuid = java.util.UUID.fromString(interactEvent.getEntityUuid().getValue());
+                } catch (IllegalArgumentException e) {
+                    yield null;
+                }
+                PatchBukkitEntity entity = new PatchBukkitEntity(entityUuid, interactEvent.getEntityType());
+                EquipmentSlot slot = EquipmentSlot.HAND;
+                if (!interactEvent.getHand().isEmpty()) {
+                    try {
+                        slot = EquipmentSlot.valueOf(interactEvent.getHand());
+                    } catch (IllegalArgumentException ignored) {
+                        slot = EquipmentSlot.HAND;
+                    }
+                }
+                yield new PlayerInteractEntityEvent(player, entity, slot);
+            }
+            case PLAYER_INTERACT_AT_ENTITY -> {
+                patchbukkit.events.PlayerInteractAtEntityEvent interactEvent = event.getPlayerInteractAtEntity();
+                Player player = getPlayer(interactEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+                java.util.UUID entityUuid;
+                try {
+                    entityUuid = java.util.UUID.fromString(interactEvent.getEntityUuid().getValue());
+                } catch (IllegalArgumentException e) {
+                    yield null;
+                }
+                PatchBukkitEntity entity = new PatchBukkitEntity(entityUuid, interactEvent.getEntityType());
+                EquipmentSlot slot = EquipmentSlot.HAND;
+                if (!interactEvent.getHand().isEmpty()) {
+                    try {
+                        slot = EquipmentSlot.valueOf(interactEvent.getHand());
+                    } catch (IllegalArgumentException ignored) {
+                        slot = EquipmentSlot.HAND;
+                    }
+                }
+                var pos = interactEvent.getClickedPosition();
+                Vector clickedPos = pos != null
+                    ? new Vector(pos.getX(), pos.getY(), pos.getZ())
+                    : new Vector();
+                yield new PlayerInteractAtEntityEvent(player, entity, clickedPos, slot);
             }
             case PLAYER_INTERACT -> {
                 patchbukkit.events.PlayerInteractEvent interactEvent = event.getPlayerInteract();
@@ -1054,6 +1103,42 @@ public class PatchBukkitEventFactory {
                 fishBuilder.setCaughtType(caught.getType().name());
             }
             eventBuilder.setPlayerFish(fishBuilder.build());
+        } else if (event instanceof PlayerInteractAtEntityEvent interactEvent) {
+            var entity = interactEvent.getRightClicked();
+            var pos = interactEvent.getClickedPosition();
+            var builder = patchbukkit.events.PlayerInteractAtEntityEvent.newBuilder()
+                .setPlayerUuid(UUID.newBuilder()
+                    .setValue(interactEvent.getPlayer().getUniqueId().toString())
+                    .build())
+                .setEntityUuid(UUID.newBuilder()
+                    .setValue(entity.getUniqueId().toString())
+                    .build())
+                .setEntityType(entity.getType().name());
+            if (interactEvent.getHand() != null) {
+                builder.setHand(interactEvent.getHand().name());
+            }
+            if (pos != null) {
+                builder.setClickedPosition(patchbukkit.common.Vec3.newBuilder()
+                    .setX(pos.getX())
+                    .setY(pos.getY())
+                    .setZ(pos.getZ())
+                    .build());
+            }
+            eventBuilder.setPlayerInteractAtEntity(builder.build());
+        } else if (event instanceof PlayerInteractEntityEvent interactEvent) {
+            var entity = interactEvent.getRightClicked();
+            var builder = patchbukkit.events.PlayerInteractEntityEvent.newBuilder()
+                .setPlayerUuid(UUID.newBuilder()
+                    .setValue(interactEvent.getPlayer().getUniqueId().toString())
+                    .build())
+                .setEntityUuid(UUID.newBuilder()
+                    .setValue(entity.getUniqueId().toString())
+                    .build())
+                .setEntityType(entity.getType().name());
+            if (interactEvent.getHand() != null) {
+                builder.setHand(interactEvent.getHand().name());
+            }
+            eventBuilder.setPlayerInteractEntity(builder.build());
         } else if (event instanceof PlayerInteractEvent interactEvent) {
             var block = interactEvent.getClickedBlock();
             var location = block != null ? block.getLocation() : null;

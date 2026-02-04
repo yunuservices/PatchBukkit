@@ -48,6 +48,8 @@ message Event {
     PlayerEggThrowEvent player_egg_throw = 33;
     PlayerExpChangeEvent player_exp_change = 34;
     PlayerFishEvent player_fish = 35;
+    PlayerInteractEntityEvent player_interact_entity = 36;
+    PlayerInteractAtEntityEvent player_interact_at_entity = 37;
   }
 }
 

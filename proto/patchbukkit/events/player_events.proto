@@ -103,6 +103,21 @@ message PlayerFishEvent {
   int32 exp_to_drop = 7;
 }
 
+message PlayerInteractEntityEvent {
+  patchbukkit.common.UUID player_uuid = 1;
+  patchbukkit.common.UUID entity_uuid = 2;
+  string entity_type = 3;
+  string hand = 4;
+}
+
+message PlayerInteractAtEntityEvent {
+  patchbukkit.common.UUID player_uuid = 1;
+  patchbukkit.common.UUID entity_uuid = 2;
+  string entity_type = 3;
+  string hand = 4;
+  patchbukkit.common.Vec3 clicked_position = 5;
+}
+
 message AsyncPlayerPreLoginEvent {
   string name = 1;
   patchbukkit.common.UUID player_uuid = 2;
