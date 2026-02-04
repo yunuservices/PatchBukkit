@@ -7,6 +7,7 @@ use pumpkin::plugin::player::player_chat::PlayerChatEvent;
 use pumpkin::plugin::player::player_command_preprocess::PlayerCommandPreprocessEvent;
 use pumpkin::plugin::player::player_command_send::PlayerCommandSendEvent;
 use pumpkin::plugin::player::player_drop_item::PlayerDropItemEvent;
+use pumpkin::plugin::player::player_edit_book::PlayerEditBookEvent;
 use pumpkin::plugin::player::player_interact_event::{InteractAction, PlayerInteractEvent};
 use pumpkin::plugin::player::player_join::PlayerJoinEvent;
 use pumpkin::plugin::player::player_login::PlayerLoginEvent;
@@ -435,6 +436,23 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
                             pumpkin::plugin::player::player_drop_item::PlayerDropItemEvent,
                             PatchBukkitEventHandler<
                                 pumpkin::plugin::player::player_drop_item::PlayerDropItemEvent,
+                            >,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.player.PlayerEditBookEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::player::player_edit_book::PlayerEditBookEvent,
+                            PatchBukkitEventHandler<
+                                pumpkin::plugin::player::player_edit_book::PlayerEditBookEvent,
                             >,
                         >(
                             Arc::new(PatchBukkitEventHandler::new(
@@ -943,6 +961,25 @@ pub fn ffi_native_bridge_call_event_impl(request: CallEventRequest) -> Option<Ca
                     );
                     let pumpkin_event =
                         PlayerDropItemEvent::new(player, item_uuid, item_stack);
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
+                Data::PlayerEditBook(player_edit_book_event_data) => {
+                    let uuid =
+                        uuid::Uuid::parse_str(&player_edit_book_event_data.player_uuid?.value).ok()?;
+                    let player = context.server.get_player_by_uuid(uuid)?;
+                    let title = if player_edit_book_event_data.title.is_empty() {
+                        None
+                    } else {
+                        Some(player_edit_book_event_data.title)
+                    };
+                    let pumpkin_event = PlayerEditBookEvent::new(
+                        player,
+                        player_edit_book_event_data.slot,
+                        player_edit_book_event_data.pages,
+                        title,
+                        player_edit_book_event_data.is_signing,
+                    );
                     context.server.plugin_manager.fire(pumpkin_event).await;
                     Some(true)
                 }

@@ -44,6 +44,7 @@ message Event {
     PlayerUnregisterChannelEvent player_unregister_channel = 29;
     PlayerCommandSendEvent player_command_send = 30;
     PlayerDropItemEvent player_drop_item = 31;
+    PlayerEditBookEvent player_edit_book = 32;
   }
 }
 

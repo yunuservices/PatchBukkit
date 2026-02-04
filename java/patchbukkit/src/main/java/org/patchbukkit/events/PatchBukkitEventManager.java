@@ -408,6 +408,25 @@ public class PatchBukkitEventManager {
                     ).build()
                 );
                 break;
+            case "org.bukkit.event.player.PlayerEditBookEvent":
+                var editEvent = (org.bukkit.event.player.PlayerEditBookEvent) event;
+                var editBuilder = patchbukkit.events.PlayerEditBookEvent.newBuilder()
+                    .setPlayerUuid(BridgeUtils.convertUuid(editEvent.getPlayer().getUniqueId()))
+                    .setSlot(editEvent.getSlot())
+                    .setIsSigning(editEvent.isSigning());
+                var newMeta = editEvent.getNewBookMeta();
+                if (newMeta != null) {
+                    editBuilder.addAllPages(newMeta.getPages());
+                    if (newMeta.hasTitle()) {
+                        editBuilder.setTitle(newMeta.getTitle());
+                    }
+                }
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setPlayerEditBook(
+                        editBuilder.build()
+                    ).build()
+                );
+                break;
             case "org.bukkit.event.player.PlayerInteractEvent":
                 var interactEvent = (org.bukkit.event.player.PlayerInteractEvent) event;
                 var clicked = interactEvent.getClickedBlock();

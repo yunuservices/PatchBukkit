@@ -31,6 +31,7 @@ import org.bukkit.event.player.PlayerChangedMainHandEvent;
 import org.bukkit.event.player.PlayerRegisterChannelEvent;
 import org.bukkit.event.player.PlayerUnregisterChannelEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerEditBookEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.BroadcastMessageEvent;
@@ -53,6 +54,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.MainHand;
+import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.block.Block;
 import org.bukkit.Material;
 import org.bukkit.GameMode;
@@ -433,6 +435,22 @@ public class PatchBukkitEventFactory {
                 ItemStack stack = materialToItem(dropEvent.getItemKey(), dropEvent.getItemAmount());
                 PatchBukkitItem item = new PatchBukkitItem(itemUuid, stack);
                 yield new PlayerDropItemEvent(player, item);
+            }
+            case PLAYER_EDIT_BOOK -> {
+                patchbukkit.events.PlayerEditBookEvent editEvent = event.getPlayerEditBook();
+                Player player = getPlayer(editEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+                boolean isSigning = editEvent.getIsSigning();
+                ItemStack item = new ItemStack(isSigning ? Material.WRITTEN_BOOK : Material.WRITABLE_BOOK);
+                BookMeta previousMeta = (BookMeta) item.getItemMeta();
+                BookMeta newMeta = (BookMeta) item.getItemMeta();
+                if (newMeta != null) {
+                    newMeta.setPages(editEvent.getPagesList());
+                    if (!editEvent.getTitle().isEmpty()) {
+                        newMeta.setTitle(editEvent.getTitle());
+                    }
+                }
+                yield new PlayerEditBookEvent(player, editEvent.getSlot(), previousMeta, newMeta, isSigning);
             }
             case PLAYER_INTERACT -> {
                 patchbukkit.events.PlayerInteractEvent interactEvent = event.getPlayerInteract();
@@ -884,6 +902,27 @@ public class PatchBukkitEventFactory {
                         .build())
                     .setItemKey(itemKey)
                     .setItemAmount(itemAmount)
+                    .build()
+            );
+        } else if (event instanceof PlayerEditBookEvent editEvent) {
+            BookMeta newMeta = editEvent.getNewBookMeta();
+            String title = "";
+            java.util.List<String> pages = java.util.Collections.emptyList();
+            if (newMeta != null) {
+                pages = newMeta.getPages();
+                if (newMeta.hasTitle()) {
+                    title = newMeta.getTitle();
+                }
+            }
+            eventBuilder.setPlayerEditBook(
+                patchbukkit.events.PlayerEditBookEvent.newBuilder()
+                    .setPlayerUuid(UUID.newBuilder()
+                        .setValue(editEvent.getPlayer().getUniqueId().toString())
+                        .build())
+                    .setSlot(editEvent.getSlot())
+                    .addAllPages(pages)
+                    .setTitle(title)
+                    .setIsSigning(editEvent.isSigning())
                     .build()
             );
         } else if (event instanceof PlayerInteractEvent interactEvent) {

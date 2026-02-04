@@ -28,6 +28,7 @@ use crate::proto::patchbukkit::events::{
     PlayerBucketEmptyEvent, PlayerBucketFillEvent, PlayerBucketEntityEvent,
     PlayerChangedMainHandEvent,
     PlayerRegisterChannelEvent, PlayerUnregisterChannelEvent, PlayerDropItemEvent,
+    PlayerEditBookEvent,
 };
 
 pub struct EventContext {
@@ -924,6 +925,45 @@ impl PatchBukkitEvent for pumpkin::plugin::player::player_drop_item::PlayerDropI
                     let count = amount.take().unwrap_or(self.item_stack.item_count);
                     self.item_stack = item_stack_from_key(&key, count);
                 }
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::player::player_edit_book::PlayerEditBookEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::PlayerEditBook(PlayerEditBookEvent {
+                    player_uuid: Some(Uuid {
+                        value: self.player.gameprofile.id.to_string(),
+                    }),
+                    slot: self.slot,
+                    pages: self.pages.clone(),
+                    title: self.title.clone().unwrap_or_default(),
+                    is_signing: self.is_signing,
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::PlayerEditBook(event) => {
+                self.slot = event.slot;
+                self.pages = event.pages;
+                self.is_signing = event.is_signing;
+                self.title = if event.title.is_empty() {
+                    None
+                } else {
+                    Some(event.title)
+                };
             }
             _ => {}
         }

@@ -72,6 +72,14 @@ message PlayerDropItemEvent {
   int32 item_amount = 4;
 }
 
+message PlayerEditBookEvent {
+  patchbukkit.common.UUID player_uuid = 1;
+  int32 slot = 2;
+  repeated string pages = 3;
+  string title = 4;
+  bool is_signing = 5;
+}
+
 message AsyncPlayerPreLoginEvent {
   string name = 1;
   patchbukkit.common.UUID player_uuid = 2;
