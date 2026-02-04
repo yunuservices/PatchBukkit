@@ -3,6 +3,8 @@ use std::sync::Arc;
 use pumpkin::plugin::EventPriority;
 use pumpkin::plugin::block::block_break::BlockBreakEvent;
 use pumpkin::plugin::block::block_place::BlockPlaceEvent;
+use pumpkin::plugin::block::block_can_build::BlockCanBuildEvent;
+use pumpkin::plugin::block::block_burn::BlockBurnEvent;
 use pumpkin::plugin::player::player_chat::PlayerChatEvent;
 use pumpkin::plugin::player::player_command_preprocess::PlayerCommandPreprocessEvent;
 use pumpkin::plugin::player::player_command_send::PlayerCommandSendEvent;
@@ -973,6 +975,36 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
                         .register_event::<
                             pumpkin::plugin::block::block_break::BlockBreakEvent,
                             PatchBukkitEventHandler<pumpkin::plugin::block::block_break::BlockBreakEvent>,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.block.BlockCanBuildEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::block::block_can_build::BlockCanBuildEvent,
+                            PatchBukkitEventHandler<pumpkin::plugin::block::block_can_build::BlockCanBuildEvent>,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.block.BlockBurnEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::block::block_burn::BlockBurnEvent,
+                            PatchBukkitEventHandler<pumpkin::plugin::block::block_burn::BlockBurnEvent>,
                         >(
                             Arc::new(PatchBukkitEventHandler::new(
                                 request.plugin_name.clone(),
@@ -2070,15 +2102,102 @@ pub fn ffi_native_bridge_call_event_impl(request: CallEventRequest) -> Option<Ca
                     let player = context.server.get_player_by_uuid(uuid)?;
                     let block = block_from_key(&block_place_event_data.block_key);
                     let against = block_from_key(&block_place_event_data.block_against_key);
+                    let position = block_place_event_data
+                        .location
+                        .and_then(|loc| loc.position)
+                        .map(|pos| {
+                            pumpkin_util::math::position::BlockPos::new(
+                                pos.x as i32,
+                                pos.y as i32,
+                                pos.z as i32,
+                            )
+                        })
+                        .unwrap_or_else(|| player.position().to_block_pos());
 
                     let pumpkin_event = BlockPlaceEvent {
                         player,
                         block_placed: block,
                         block_placed_against: against,
+                        position,
                         can_build: block_place_event_data.can_build,
                         cancelled: false,
                     };
 
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
+                Data::BlockCanBuild(block_can_build_event_data) => {
+                    let uuid =
+                        uuid::Uuid::parse_str(&block_can_build_event_data.player_uuid?.value).ok()?;
+                    let player = context.server.get_player_by_uuid(uuid)?;
+                    let block_to_build = block_from_key(&block_can_build_event_data.block_key);
+                    let block_against = block_from_key(&block_can_build_event_data.block_against_key);
+                    let position = block_can_build_event_data
+                        .location
+                        .and_then(|loc| loc.position)
+                        .map(|pos| {
+                            pumpkin_util::math::position::BlockPos::new(
+                                pos.x as i32,
+                                pos.y as i32,
+                                pos.z as i32,
+                            )
+                        })
+                        .unwrap_or_else(|| player.position().to_block_pos());
+                    let pumpkin_event = BlockCanBuildEvent {
+                        player,
+                        block_to_build,
+                        buildable: block_can_build_event_data.can_build,
+                        block: block_against,
+                        block_pos: position,
+                        cancelled: false,
+                    };
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
+                Data::BlockBurn(block_burn_event_data) => {
+                    let block = block_from_key(&block_burn_event_data.block_key);
+                    let igniting_block =
+                        block_from_key(&block_burn_event_data.igniting_block_key);
+                    let (world_uuid, pos) = if let Some(loc) = block_burn_event_data.location {
+                        let world_uuid = loc
+                            .world
+                            .and_then(|w| w.uuid)
+                            .and_then(|uuid| uuid::Uuid::parse_str(&uuid.value).ok())
+                            .unwrap_or_else(|| {
+                                context
+                                    .server
+                                    .worlds
+                                    .load()
+                                    .first()
+                                    .map(|w| w.uuid)
+                                    .unwrap_or_else(uuid::Uuid::new_v4)
+                            });
+                        let pos = location_to_vec3(loc).unwrap_or_else(Vector3::default);
+                        (world_uuid, pos)
+                    } else {
+                        (
+                            context
+                                .server
+                                .worlds
+                                .load()
+                                .first()
+                                .map(|w| w.uuid)
+                                .unwrap_or_else(uuid::Uuid::new_v4),
+                            Vector3::default(),
+                        )
+                    };
+                    let block_pos = pumpkin_util::math::position::BlockPos::new(
+                        pos.x.floor() as i32,
+                        pos.y.floor() as i32,
+                        pos.z.floor() as i32,
+                    );
+                    let pumpkin_event = BlockBurnEvent {
+                        igniting_block,
+                        block,
+                        block_pos,
+                        world_uuid,
+                        cancelled: false,
+                    };
                     context.server.plugin_manager.fire(pumpkin_event).await;
                     Some(true)
                 }

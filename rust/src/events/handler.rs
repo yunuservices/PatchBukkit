@@ -19,7 +19,7 @@ use crate::java::jvm::commands::JvmCommand;
 use crate::proto::patchbukkit::common::{Location, Uuid, Vec3, World};
 use crate::proto::patchbukkit::events::event::Data;
 use crate::proto::patchbukkit::events::{
-    BlockBreakEvent, BlockPlaceEvent, Event, PlayerChatEvent, PlayerCommandEvent, PlayerCommandSendEvent, PlayerJoinEvent,
+    BlockBreakEvent, BlockPlaceEvent, BlockCanBuildEvent, BlockBurnEvent, Event, PlayerChatEvent, PlayerCommandEvent, PlayerCommandSendEvent, PlayerJoinEvent,
     PlayerLeaveEvent, PlayerMoveEvent, PlayerInteractEvent, ServerBroadcastEvent, ServerCommandEvent,
     EntityDamageEvent, EntityDeathEvent, EntitySpawnEvent,
     PlayerLoginEvent, PlayerTeleportEvent, PlayerChangeWorldEvent, PlayerGamemodeChangeEvent,
@@ -2369,6 +2369,99 @@ impl PatchBukkitEvent for pumpkin::plugin::block::block_place::BlockPlaceEvent {
             _ => {}
         }
 
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::block::block_can_build::BlockCanBuildEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        let player_uuid = self.player.gameprofile.id.to_string();
+        let world_uuid = self.player.world().uuid;
+        let location = build_location(
+            world_uuid,
+            &Vector3::new(
+                f64::from(self.block_pos.0.x),
+                f64::from(self.block_pos.0.y),
+                f64::from(self.block_pos.0.z),
+            ),
+            0.0,
+            0.0,
+        );
+
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::BlockCanBuild(BlockCanBuildEvent {
+                    player_uuid: Some(Uuid { value: player_uuid }),
+                    block_key: block_to_key(self.block_to_build),
+                    block_against_key: block_to_key(self.block),
+                    location: Some(location),
+                    can_build: self.buildable,
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::BlockCanBuild(event) => {
+                self.buildable = event.can_build;
+                if let Some(loc) = event.location {
+                    if let Some(pos) = location_to_vec3(loc.clone()) {
+                        self.block_pos = pumpkin_util::math::position::BlockPos::new(
+                            pos.x.floor() as i32,
+                            pos.y.floor() as i32,
+                            pos.z.floor() as i32,
+                        );
+                    }
+                }
+                if !event.block_key.is_empty() {
+                    if let Some(block) = Block::from_name(&event.block_key) {
+                        self.block_to_build = block;
+                    }
+                }
+                if !event.block_against_key.is_empty() {
+                    if let Some(block) = Block::from_name(&event.block_against_key) {
+                        self.block = block;
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::block::block_burn::BlockBurnEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        let location = build_location(
+            self.world_uuid,
+            &Vector3::new(
+                f64::from(self.block_pos.0.x),
+                f64::from(self.block_pos.0.y),
+                f64::from(self.block_pos.0.z),
+            ),
+            0.0,
+            0.0,
+        );
+
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::BlockBurn(BlockBurnEvent {
+                    block_key: block_to_key(self.block),
+                    igniting_block_key: block_to_key(self.igniting_block),
+                    location: Some(location),
+                })),
+            },
+            context: EventContext { server, player: None },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, _data: Data) -> Option<()> {
         Some(())
     }
 }

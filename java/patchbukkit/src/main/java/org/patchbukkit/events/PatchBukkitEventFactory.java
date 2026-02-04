@@ -8,6 +8,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockCanBuildEvent;
+import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -1018,6 +1020,44 @@ public class PatchBukkitEventFactory {
                 eventObj.setDropItems(breakEvent.getDrop());
                 yield eventObj;
             }
+            case BLOCK_CAN_BUILD -> {
+                patchbukkit.events.BlockCanBuildEvent canBuildEvent = event.getBlockCanBuild();
+                Player player = getPlayer(canBuildEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+
+                Location location = BridgeUtils.convertLocation(canBuildEvent.getLocation());
+                if (location == null || !(location.getWorld() instanceof PatchBukkitWorld world)) {
+                    yield null;
+                }
+
+                org.bukkit.block.Block block = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    canBuildEvent.getBlockKey()
+                );
+                org.bukkit.block.data.BlockData data = block.getBlockData();
+                yield createBlockCanBuildEvent(block, data, canBuildEvent.getCanBuild());
+            }
+            case BLOCK_BURN -> {
+                patchbukkit.events.BlockBurnEvent burnEvent = event.getBlockBurn();
+                Location location = BridgeUtils.convertLocation(burnEvent.getLocation());
+                if (location == null || !(location.getWorld() instanceof PatchBukkitWorld world)) {
+                    yield null;
+                }
+
+                org.bukkit.block.Block block = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    burnEvent.getBlockKey()
+                );
+                BlockBurnEvent eventObj = new BlockBurnEvent(block);
+                setIgnitingBlock(eventObj, burnEvent.getIgnitingBlockKey());
+                yield eventObj;
+            }
             case BLOCK_PLACE -> {
                 patchbukkit.events.BlockPlaceEvent placeEvent = event.getBlockPlace();
                 Player player = getPlayer(placeEvent.getPlayerUuid().getValue());
@@ -1904,6 +1944,34 @@ public class PatchBukkitEventFactory {
                     .setDrop(breakEvent.isDropItems())
                     .build()
             );
+        } else if (event instanceof BlockCanBuildEvent canBuildEvent) {
+            Block block = canBuildEvent.getBlock();
+            boolean canBuild = canBuildEvent.isBuildable();
+            java.util.UUID playerUuid = resolveEventPlayerUuid(canBuildEvent);
+            eventBuilder.setBlockCanBuild(
+                patchbukkit.events.BlockCanBuildEvent.newBuilder()
+                    .setPlayerUuid(UUID.newBuilder()
+                        .setValue(playerUuid.toString())
+                        .build())
+                    .setBlockKey(block.getType().getKey().toString())
+                    .setBlockAgainstKey(block.getType().getKey().toString())
+                    .setLocation(BridgeUtils.convertLocation(block.getLocation()))
+                    .setCanBuild(canBuild)
+                    .build()
+            );
+        } else if (event instanceof BlockBurnEvent burnEvent) {
+            Block block = burnEvent.getBlock();
+            Block ignitingBlock = resolveIgnitingBlock(burnEvent);
+            String ignitingKey = ignitingBlock != null
+                ? ignitingBlock.getType().getKey().toString()
+                : "minecraft:fire";
+            eventBuilder.setBlockBurn(
+                patchbukkit.events.BlockBurnEvent.newBuilder()
+                    .setBlockKey(block.getType().getKey().toString())
+                    .setIgnitingBlockKey(ignitingKey)
+                    .setLocation(BridgeUtils.convertLocation(block.getLocation()))
+                    .build()
+            );
         } else if (event instanceof BlockPlaceEvent placeEvent) {
             var block = placeEvent.getBlockPlaced();
             var against = placeEvent.getBlockAgainst();
@@ -2074,6 +2142,43 @@ public class PatchBukkitEventFactory {
         return null;
     }
 
+    @NotNull
+    static java.util.UUID resolveEventPlayerUuid(@NotNull org.bukkit.event.Event event) {
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getPlayer");
+            Object value = method.invoke(event);
+            if (value instanceof Player player) {
+                return player.getUniqueId();
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getPlayerUUID");
+            Object value = method.invoke(event);
+            if (value instanceof java.util.UUID uuid) {
+                return uuid;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return java.util.UUID.randomUUID();
+    }
+
+    @Nullable
+    static Block resolveIgnitingBlock(@NotNull BlockBurnEvent event) {
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getIgnitingBlock");
+            Object value = method.invoke(event);
+            if (value instanceof Block block) {
+                return block;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
     @Nullable
     private static org.bukkit.event.Event createHarvestBlockEvent(
         @NotNull Player player,
@@ -2107,6 +2212,58 @@ public class PatchBukkitEventFactory {
             // ignore
         }
         return null;
+    }
+
+    @Nullable
+    private static BlockCanBuildEvent createBlockCanBuildEvent(
+        @NotNull Block block,
+        @NotNull org.bukkit.block.data.BlockData data,
+        boolean canBuild
+    ) {
+        try {
+            java.lang.reflect.Constructor<BlockCanBuildEvent> ctor =
+                BlockCanBuildEvent.class.getConstructor(Block.class, org.bukkit.block.data.BlockData.class, boolean.class);
+            return ctor.newInstance(block, data, canBuild);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<BlockCanBuildEvent> ctor =
+                BlockCanBuildEvent.class.getConstructor(Block.class, Material.class, boolean.class);
+            return ctor.newInstance(block, block.getType(), canBuild);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<BlockCanBuildEvent> ctor =
+                BlockCanBuildEvent.class.getConstructor(Block.class, boolean.class);
+            return ctor.newInstance(block, canBuild);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    private static void setIgnitingBlock(@NotNull BlockBurnEvent event, @Nullable String ignitingKey) {
+        if (ignitingKey == null || ignitingKey.isEmpty()) {
+            return;
+        }
+        Material material = Material.matchMaterial(ignitingKey);
+        if (material == null) {
+            material = Material.matchMaterial("minecraft:" + ignitingKey);
+        }
+        if (material == null) {
+            return;
+        }
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("setIgnitingBlock", Block.class);
+            Block block = event.getBlock().getWorld().getBlockAt(event.getBlock().getLocation());
+            if (block != null) {
+                method.invoke(event, block);
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
     }
 
     @Nullable

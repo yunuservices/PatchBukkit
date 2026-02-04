@@ -22,6 +22,20 @@ message BlockPlaceEvent {
   bool can_build = 5;
 }
 
+message BlockCanBuildEvent {
+  patchbukkit.common.UUID player_uuid = 1;
+  string block_key = 2;
+  string block_against_key = 3;
+  patchbukkit.common.Location location = 4;
+  bool can_build = 5;
+}
+
+message BlockBurnEvent {
+  string block_key = 1;
+  string igniting_block_key = 2;
+  patchbukkit.common.Location location = 3;
+}
+
 message PlayerInteractEvent {
   patchbukkit.common.UUID player_uuid = 1;
   string action = 2;

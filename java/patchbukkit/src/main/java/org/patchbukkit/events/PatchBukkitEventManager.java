@@ -14,6 +14,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredListener;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
+import org.bukkit.block.Block;
 import org.patchbukkit.bridge.BridgeUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
@@ -994,6 +995,38 @@ public class PatchBukkitEventManager {
                             .setLocation(BridgeUtils.convertLocation(breakEvent.getBlock().getLocation()))
                             .setExp(breakEvent.getExpToDrop())
                             .setDrop(breakEvent.isDropItems())
+                            .build()
+                    ).build()
+                );
+                break;
+            case "org.bukkit.event.block.BlockCanBuildEvent":
+                var canBuildEvent = (org.bukkit.event.block.BlockCanBuildEvent) event;
+                Block canBuildBlock = canBuildEvent.getBlock();
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setBlockCanBuild(
+                        patchbukkit.events.BlockCanBuildEvent.newBuilder()
+                            .setPlayerUuid(BridgeUtils.convertUuid(PatchBukkitEventFactory.resolveEventPlayerUuid(canBuildEvent)))
+                            .setBlockKey(canBuildBlock.getType().getKey().toString())
+                            .setBlockAgainstKey(canBuildBlock.getType().getKey().toString())
+                            .setLocation(BridgeUtils.convertLocation(canBuildBlock.getLocation()))
+                            .setCanBuild(canBuildEvent.isBuildable())
+                            .build()
+                    ).build()
+                );
+                break;
+            case "org.bukkit.event.block.BlockBurnEvent":
+                var burnEvent = (org.bukkit.event.block.BlockBurnEvent) event;
+                Block burnedBlock = burnEvent.getBlock();
+                Block ignitingBlock = PatchBukkitEventFactory.resolveIgnitingBlock(burnEvent);
+                String ignitingKey = ignitingBlock != null
+                    ? ignitingBlock.getType().getKey().toString()
+                    : "minecraft:fire";
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setBlockBurn(
+                        patchbukkit.events.BlockBurnEvent.newBuilder()
+                            .setBlockKey(burnedBlock.getType().getKey().toString())
+                            .setIgnitingBlockKey(ignitingKey)
+                            .setLocation(BridgeUtils.convertLocation(burnedBlock.getLocation()))
                             .build()
                     ).build()
                 );
