@@ -16,7 +16,7 @@ use crate::java::jvm::commands::JvmCommand;
 use crate::proto::patchbukkit::common::{Location, Uuid, Vec3, World};
 use crate::proto::patchbukkit::events::event::Data;
 use crate::proto::patchbukkit::events::{
-    BlockBreakEvent, BlockPlaceEvent, Event, PlayerChatEvent, PlayerCommandEvent, PlayerJoinEvent,
+    BlockBreakEvent, BlockPlaceEvent, Event, PlayerChatEvent, PlayerCommandEvent, PlayerCommandSendEvent, PlayerJoinEvent,
     PlayerLeaveEvent, PlayerMoveEvent, PlayerInteractEvent, ServerBroadcastEvent, ServerCommandEvent,
     EntityDamageEvent, EntityDeathEvent, EntitySpawnEvent,
     PlayerLoginEvent, PlayerTeleportEvent, PlayerChangeWorldEvent, PlayerGamemodeChangeEvent,
@@ -813,7 +813,7 @@ impl PatchBukkitEvent for pumpkin::plugin::player::player_chat::PlayerChatEvent 
     }
 }
 
-impl PatchBukkitEvent for pumpkin::plugin::player::player_command_send::PlayerCommandSendEvent {
+impl PatchBukkitEvent for pumpkin::plugin::player::player_command_preprocess::PlayerCommandPreprocessEvent {
     fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
         JvmEventPayload {
             event: Event {
@@ -834,7 +834,39 @@ impl PatchBukkitEvent for pumpkin::plugin::player::player_command_send::PlayerCo
     fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
         match data {
             Data::PlayerCommand(event) => {
-                self.command = event.command;
+                if !event.command.is_empty() {
+                    self.command = event.command;
+                }
+            }
+            _ => {}
+        }
+
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::player::player_command_send::PlayerCommandSendEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::PlayerCommandSend(crate::proto::patchbukkit::events::PlayerCommandSendEvent {
+                    player_uuid: Some(Uuid {
+                        value: self.player.gameprofile.id.to_string(),
+                    }),
+                    commands: self.commands.clone(),
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::PlayerCommandSend(event) => {
+                self.commands = event.commands;
             }
             _ => {}
         }

@@ -375,6 +375,17 @@ public class PatchBukkitEventManager {
                     ).build()
                 );
                 break;
+            case "org.bukkit.event.player.PlayerCommandSendEvent":
+                var commandSendEvent = (org.bukkit.event.player.PlayerCommandSendEvent) event;
+                var commandSendBuilder = patchbukkit.events.PlayerCommandSendEvent.newBuilder()
+                    .setPlayerUuid(BridgeUtils.convertUuid(commandSendEvent.getPlayer().getUniqueId()));
+                commandSendBuilder.addAllCommands(commandSendEvent.getCommands());
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setPlayerCommandSend(
+                        commandSendBuilder.build()
+                    ).build()
+                );
+                break;
             case "org.bukkit.event.player.PlayerInteractEvent":
                 var interactEvent = (org.bukkit.event.player.PlayerInteractEvent) event;
                 var clicked = interactEvent.getClickedBlock();

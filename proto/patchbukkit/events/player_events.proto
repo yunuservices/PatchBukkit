@@ -60,6 +60,11 @@ message PlayerCommandEvent {
   string command = 2;
 }
 
+message PlayerCommandSendEvent {
+  patchbukkit.common.UUID player_uuid = 1;
+  repeated string commands = 2;
+}
+
 message AsyncPlayerPreLoginEvent {
   string name = 1;
   patchbukkit.common.UUID player_uuid = 2;

@@ -12,6 +12,7 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import org.bukkit.event.player.PlayerCommandSendEvent;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
@@ -410,6 +411,12 @@ public class PatchBukkitEventFactory {
                 if (player == null) yield null;
 
                 yield new PlayerCommandPreprocessEvent(player, commandEvent.getCommand());
+            }
+            case PLAYER_COMMAND_SEND -> {
+                patchbukkit.events.PlayerCommandSendEvent commandEvent = event.getPlayerCommandSend();
+                Player player = getPlayer(commandEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+                yield new PlayerCommandSendEvent(player, new HashSet<>(commandEvent.getCommandsList()));
             }
             case PLAYER_INTERACT -> {
                 patchbukkit.events.PlayerInteractEvent interactEvent = event.getPlayerInteract();
@@ -836,6 +843,13 @@ public class PatchBukkitEventFactory {
                     .setCommand(commandEvent.getMessage())
                     .build()
             );
+        } else if (event instanceof PlayerCommandSendEvent commandSendEvent) {
+            var builder = patchbukkit.events.PlayerCommandSendEvent.newBuilder()
+                .setPlayerUuid(UUID.newBuilder()
+                    .setValue(commandSendEvent.getPlayer().getUniqueId().toString())
+                    .build());
+            builder.addAllCommands(commandSendEvent.getCommands());
+            eventBuilder.setPlayerCommandSend(builder.build());
         } else if (event instanceof PlayerInteractEvent interactEvent) {
             var block = interactEvent.getClickedBlock();
             var location = block != null ? block.getLocation() : null;

@@ -4,6 +4,7 @@ use pumpkin::plugin::EventPriority;
 use pumpkin::plugin::block::block_break::BlockBreakEvent;
 use pumpkin::plugin::block::block_place::BlockPlaceEvent;
 use pumpkin::plugin::player::player_chat::PlayerChatEvent;
+use pumpkin::plugin::player::player_command_preprocess::PlayerCommandPreprocessEvent;
 use pumpkin::plugin::player::player_command_send::PlayerCommandSendEvent;
 use pumpkin::plugin::player::player_interact_event::{InteractAction, PlayerInteractEvent};
 use pumpkin::plugin::player::player_join::PlayerJoinEvent;
@@ -394,6 +395,23 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
                         .await;
                 }
                 "org.bukkit.event.player.PlayerCommandPreprocessEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::player::player_command_preprocess::PlayerCommandPreprocessEvent,
+                            PatchBukkitEventHandler<
+                                pumpkin::plugin::player::player_command_preprocess::PlayerCommandPreprocessEvent,
+                            >,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.player.PlayerCommandSendEvent" => {
                     context
                         .register_event::<
                             pumpkin::plugin::player::player_command_send::PlayerCommandSendEvent,
@@ -882,7 +900,16 @@ pub fn ffi_native_bridge_call_event_impl(request: CallEventRequest) -> Option<Ca
                         uuid::Uuid::parse_str(&player_command_event_data.player_uuid?.value).ok()?;
                     let player = context.server.get_player_by_uuid(uuid)?;
                     let pumpkin_event =
-                        PlayerCommandSendEvent::new(player, player_command_event_data.command);
+                        PlayerCommandPreprocessEvent::new(player, player_command_event_data.command);
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
+                Data::PlayerCommandSend(player_command_send_event_data) => {
+                    let uuid =
+                        uuid::Uuid::parse_str(&player_command_send_event_data.player_uuid?.value).ok()?;
+                    let player = context.server.get_player_by_uuid(uuid)?;
+                    let pumpkin_event =
+                        PlayerCommandSendEvent::new(player, player_command_send_event_data.commands);
                     context.server.plugin_manager.fire(pumpkin_event).await;
                     Some(true)
                 }
