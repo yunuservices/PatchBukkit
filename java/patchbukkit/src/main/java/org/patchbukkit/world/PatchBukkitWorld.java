@@ -149,10 +149,7 @@ public class PatchBukkitWorld
 
     @Override
     public @NotNull Block getBlockAt(int x, int y, int z) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException(
-            "Unimplemented method 'getBlockAt'"
-        );
+        return PatchBukkitBlock.create(this, x, y, z, "minecraft:air");
     }
 
     @Override

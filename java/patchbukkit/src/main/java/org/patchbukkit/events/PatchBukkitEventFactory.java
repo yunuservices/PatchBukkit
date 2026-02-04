@@ -7,7 +7,10 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -17,6 +20,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.patchbukkit.bridge.BridgeUtils;
 import org.patchbukkit.command.PatchBukkitConsoleCommandSender;
+import org.patchbukkit.world.PatchBukkitBlock;
+import org.patchbukkit.world.PatchBukkitWorld;
 import patchbukkit.common.UUID;
 import patchbukkit.events.Event;
 import patchbukkit.events.FireEventResponse;
@@ -100,6 +105,86 @@ public class PatchBukkitEventFactory {
 
                 yield new PlayerCommandPreprocessEvent(player, commandEvent.getCommand());
             }
+            case PLAYER_INTERACT -> {
+                patchbukkit.events.PlayerInteractEvent interactEvent = event.getPlayerInteract();
+                Player player = getPlayer(interactEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+
+                Location clicked = BridgeUtils.convertLocation(interactEvent.getClicked());
+                org.bukkit.block.Block clickedBlock = null;
+                if (clicked != null && clicked.getWorld() instanceof PatchBukkitWorld world) {
+                    clickedBlock = PatchBukkitBlock.create(
+                        world,
+                        clicked.getBlockX(),
+                        clicked.getBlockY(),
+                        clicked.getBlockZ(),
+                        interactEvent.getBlockKey()
+                    );
+                }
+
+                org.bukkit.event.block.Action action =
+                    org.bukkit.event.block.Action.valueOf(interactEvent.getAction());
+                yield new PlayerInteractEvent(player, action, null, clickedBlock, null);
+            }
+            case BLOCK_BREAK -> {
+                patchbukkit.events.BlockBreakEvent breakEvent = event.getBlockBreak();
+                Player player = getPlayer(breakEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+
+                Location location = BridgeUtils.convertLocation(breakEvent.getLocation());
+                if (location == null || !(location.getWorld() instanceof PatchBukkitWorld world)) {
+                    yield null;
+                }
+
+                org.bukkit.block.Block block = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    breakEvent.getBlockKey()
+                );
+
+                BlockBreakEvent eventObj = new BlockBreakEvent(block, player);
+                eventObj.setExpToDrop(breakEvent.getExp());
+                eventObj.setDropItems(breakEvent.getDrop());
+                yield eventObj;
+            }
+            case BLOCK_PLACE -> {
+                patchbukkit.events.BlockPlaceEvent placeEvent = event.getBlockPlace();
+                Player player = getPlayer(placeEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+
+                Location location = BridgeUtils.convertLocation(placeEvent.getLocation());
+                if (location == null || !(location.getWorld() instanceof PatchBukkitWorld world)) {
+                    yield null;
+                }
+
+                org.bukkit.block.Block placed = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    placeEvent.getBlockKey()
+                );
+                org.bukkit.block.Block against = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    placeEvent.getBlockAgainstKey()
+                );
+
+                BlockPlaceEvent eventObj = new BlockPlaceEvent(
+                    placed,
+                    placed.getState(),
+                    against,
+                    null,
+                    player,
+                    placeEvent.getCanBuild(),
+                    null
+                );
+                yield eventObj;
+            }
             case SERVER_COMMAND -> {
                 patchbukkit.events.ServerCommandEvent commandEvent = event.getServerCommand();
                 yield new ServerCommandEvent(new PatchBukkitConsoleCommandSender(), commandEvent.getCommand());
@@ -181,6 +266,47 @@ public class PatchBukkitEventFactory {
                         .setValue(commandEvent.getPlayer().getUniqueId().toString())
                         .build())
                     .setCommand(commandEvent.getMessage())
+                    .build()
+            );
+        } else if (event instanceof PlayerInteractEvent interactEvent) {
+            var block = interactEvent.getClickedBlock();
+            var location = block != null ? block.getLocation() : null;
+            String blockKey = block != null ? block.getType().getKey().toString() : "minecraft:air";
+            eventBuilder.setPlayerInteract(
+                patchbukkit.events.PlayerInteractEvent.newBuilder()
+                    .setPlayerUuid(UUID.newBuilder()
+                        .setValue(interactEvent.getPlayer().getUniqueId().toString())
+                        .build())
+                    .setAction(interactEvent.getAction().name())
+                    .setBlockKey(blockKey)
+                    .setClicked(BridgeUtils.convertLocation(location))
+                    .build()
+            );
+        } else if (event instanceof BlockBreakEvent breakEvent) {
+            var block = breakEvent.getBlock();
+            eventBuilder.setBlockBreak(
+                patchbukkit.events.BlockBreakEvent.newBuilder()
+                    .setPlayerUuid(UUID.newBuilder()
+                        .setValue(breakEvent.getPlayer().getUniqueId().toString())
+                        .build())
+                    .setBlockKey(block.getType().getKey().toString())
+                    .setLocation(BridgeUtils.convertLocation(block.getLocation()))
+                    .setExp(breakEvent.getExpToDrop())
+                    .setDrop(breakEvent.isDropItems())
+                    .build()
+            );
+        } else if (event instanceof BlockPlaceEvent placeEvent) {
+            var block = placeEvent.getBlockPlaced();
+            var against = placeEvent.getBlockAgainst();
+            eventBuilder.setBlockPlace(
+                patchbukkit.events.BlockPlaceEvent.newBuilder()
+                    .setPlayerUuid(UUID.newBuilder()
+                        .setValue(placeEvent.getPlayer().getUniqueId().toString())
+                        .build())
+                    .setBlockKey(block.getType().getKey().toString())
+                    .setBlockAgainstKey(against.getType().getKey().toString())
+                    .setLocation(BridgeUtils.convertLocation(block.getLocation()))
+                    .setCanBuild(placeEvent.canBuild())
                     .build()
             );
         } else if (event instanceof ServerCommandEvent commandEvent) {

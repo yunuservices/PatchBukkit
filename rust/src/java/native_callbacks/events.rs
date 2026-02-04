@@ -1,15 +1,21 @@
 use std::sync::Arc;
 
 use pumpkin::plugin::EventPriority;
+use pumpkin::plugin::block::block_break::BlockBreakEvent;
+use pumpkin::plugin::block::block_place::BlockPlaceEvent;
 use pumpkin::plugin::player::player_chat::PlayerChatEvent;
 use pumpkin::plugin::player::player_command_send::PlayerCommandSendEvent;
+use pumpkin::plugin::player::player_interact_event::{InteractAction, PlayerInteractEvent};
 use pumpkin::plugin::player::player_join::PlayerJoinEvent;
 use pumpkin::plugin::player::player_leave::PlayerLeaveEvent;
 use pumpkin::plugin::player::player_move::PlayerMoveEvent;
 use pumpkin::plugin::server::server_broadcast::ServerBroadcastEvent;
 use pumpkin::plugin::server::server_command::ServerCommandEvent;
+use pumpkin_data::Block;
+use pumpkin_world::item::ItemStack;
 use pumpkin_util::math::vector3::Vector3;
 use pumpkin_util::text::TextComponent;
+use tokio::sync::Mutex;
 
 use crate::events::handler::PatchBukkitEventHandler;
 use crate::java::native_callbacks::CALLBACK_CONTEXT;
@@ -109,6 +115,53 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
                             PatchBukkitEventHandler<
                                 pumpkin::plugin::player::player_command_send::PlayerCommandSendEvent,
                             >,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.player.PlayerInteractEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::player::player_interact_event::PlayerInteractEvent,
+                            PatchBukkitEventHandler<
+                                pumpkin::plugin::player::player_interact_event::PlayerInteractEvent,
+                            >,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.block.BlockBreakEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::block::block_break::BlockBreakEvent,
+                            PatchBukkitEventHandler<pumpkin::plugin::block::block_break::BlockBreakEvent>,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.block.BlockPlaceEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::block::block_place::BlockPlaceEvent,
+                            PatchBukkitEventHandler<pumpkin::plugin::block::block_place::BlockPlaceEvent>,
                         >(
                             Arc::new(PatchBukkitEventHandler::new(
                                 request.plugin_name.clone(),
@@ -248,6 +301,87 @@ pub fn ffi_native_bridge_call_event_impl(request: CallEventRequest) -> Option<Ca
                     context.server.plugin_manager.fire(pumpkin_event).await;
                     Some(true)
                 }
+                Data::PlayerInteract(player_interact_event_data) => {
+                    let uuid =
+                        uuid::Uuid::parse_str(&player_interact_event_data.player_uuid?.value).ok()?;
+                    let player = context.server.get_player_by_uuid(uuid)?;
+                    let action = match player_interact_event_data.action.as_str() {
+                        "LEFT_CLICK_BLOCK" => InteractAction::LeftClickBlock,
+                        "LEFT_CLICK_AIR" => InteractAction::LeftClickAir,
+                        "RIGHT_CLICK_BLOCK" => InteractAction::RightClickBlock,
+                        "RIGHT_CLICK_AIR" => InteractAction::RightClickAir,
+                        _ => InteractAction::RightClickAir,
+                    };
+
+                    let clicked_pos = player_interact_event_data
+                        .clicked
+                        .and_then(|loc| loc.position)
+                        .map(|pos| {
+                            pumpkin_util::math::position::BlockPos::new(
+                                pos.x as i32,
+                                pos.y as i32,
+                                pos.z as i32,
+                            )
+                        });
+
+                    let block = block_from_key(&player_interact_event_data.block_key);
+                    let item = Arc::new(Mutex::new(ItemStack::EMPTY.clone()));
+
+                    let pumpkin_event = PlayerInteractEvent::new(
+                        &player,
+                        action,
+                        &item,
+                        block,
+                        clicked_pos,
+                    );
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
+                Data::BlockBreak(block_break_event_data) => {
+                    let uuid = uuid::Uuid::parse_str(&block_break_event_data.player_uuid?.value)
+                        .ok()?;
+                    let player = context.server.get_player_by_uuid(uuid);
+                    let block = block_from_key(&block_break_event_data.block_key);
+                    let position = block_break_event_data
+                        .location
+                        .and_then(|loc| loc.position)
+                        .map(|pos| {
+                            pumpkin_util::math::position::BlockPos::new(
+                                pos.x as i32,
+                                pos.y as i32,
+                                pos.z as i32,
+                            )
+                        })
+                        .unwrap_or_else(|| pumpkin_util::math::position::BlockPos::new(0, 0, 0));
+
+                    let pumpkin_event = BlockBreakEvent::new(
+                        player,
+                        block,
+                        position,
+                        block_break_event_data.exp,
+                        block_break_event_data.drop,
+                    );
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
+                Data::BlockPlace(block_place_event_data) => {
+                    let uuid = uuid::Uuid::parse_str(&block_place_event_data.player_uuid?.value)
+                        .ok()?;
+                    let player = context.server.get_player_by_uuid(uuid)?;
+                    let block = block_from_key(&block_place_event_data.block_key);
+                    let against = block_from_key(&block_place_event_data.block_against_key);
+
+                    let pumpkin_event = BlockPlaceEvent {
+                        player,
+                        block_placed: block,
+                        block_placed_against: against,
+                        can_build: block_place_event_data.can_build,
+                        cancelled: false,
+                    };
+
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
                 Data::ServerCommand(server_command_event_data) => {
                     let pumpkin_event =
                         ServerCommandEvent::new(server_command_event_data.command);
@@ -272,4 +406,9 @@ pub fn ffi_native_bridge_call_event_impl(request: CallEventRequest) -> Option<Ca
     })?;
 
     Some(CallEventResponse { handled })
+}
+
+fn block_from_key(key: &str) -> &'static Block {
+    let trimmed = key.strip_prefix("minecraft:").unwrap_or(key);
+    Block::from_registry_key(trimmed).unwrap_or(&Block::AIR)
 }

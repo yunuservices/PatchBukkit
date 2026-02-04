@@ -5,6 +5,7 @@ package patchbukkit.events;
 import "patchbukkit/common/types.proto";
 import "patchbukkit/events/player_events.proto";
 import "patchbukkit/events/server_events.proto";
+import "patchbukkit/events/block_events.proto";
 
 option java_multiple_files = true;
 option java_package = "patchbukkit.events";
@@ -18,6 +19,9 @@ message Event {
     PlayerCommandEvent player_command = 5;
     ServerCommandEvent server_command = 6;
     ServerBroadcastEvent server_broadcast = 7;
+    BlockBreakEvent block_break = 8;
+    BlockPlaceEvent block_place = 9;
+    PlayerInteractEvent player_interact = 10;
   }
 }
 

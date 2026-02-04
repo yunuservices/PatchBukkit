@@ -30,6 +30,9 @@ import patchbukkit.events.PlayerLeaveEvent;
 import patchbukkit.events.PlayerMoveEvent;
 import patchbukkit.events.ServerBroadcastEvent;
 import patchbukkit.events.ServerCommandEvent;
+import patchbukkit.events.BlockBreakEvent;
+import patchbukkit.events.BlockPlaceEvent;
+import patchbukkit.events.PlayerInteractEvent;
 import patchbukkit.events.RegisterEventRequest;
 
 import java.lang.reflect.Method;
@@ -108,6 +111,48 @@ public class PatchBukkitEventManager {
                         PlayerCommandEvent.newBuilder()
                             .setPlayerUuid(BridgeUtils.convertUuid(commandEvent.getPlayer().getUniqueId()))
                             .setCommand(commandEvent.getMessage())
+                            .build()
+                    ).build()
+                );
+                break;
+            case "org.bukkit.event.player.PlayerInteractEvent":
+                var interactEvent = (org.bukkit.event.player.PlayerInteractEvent) event;
+                var clicked = interactEvent.getClickedBlock();
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setPlayerInteract(
+                        PlayerInteractEvent.newBuilder()
+                            .setPlayerUuid(BridgeUtils.convertUuid(interactEvent.getPlayer().getUniqueId()))
+                            .setAction(interactEvent.getAction().name())
+                            .setBlockKey(clicked != null ? clicked.getType().getKey().toString() : "minecraft:air")
+                            .setClicked(BridgeUtils.convertLocation(clicked != null ? clicked.getLocation() : null))
+                            .build()
+                    ).build()
+                );
+                break;
+            case "org.bukkit.event.block.BlockBreakEvent":
+                var breakEvent = (org.bukkit.event.block.BlockBreakEvent) event;
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setBlockBreak(
+                        BlockBreakEvent.newBuilder()
+                            .setPlayerUuid(BridgeUtils.convertUuid(breakEvent.getPlayer().getUniqueId()))
+                            .setBlockKey(breakEvent.getBlock().getType().getKey().toString())
+                            .setLocation(BridgeUtils.convertLocation(breakEvent.getBlock().getLocation()))
+                            .setExp(breakEvent.getExpToDrop())
+                            .setDrop(breakEvent.isDropItems())
+                            .build()
+                    ).build()
+                );
+                break;
+            case "org.bukkit.event.block.BlockPlaceEvent":
+                var placeEvent = (org.bukkit.event.block.BlockPlaceEvent) event;
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setBlockPlace(
+                        BlockPlaceEvent.newBuilder()
+                            .setPlayerUuid(BridgeUtils.convertUuid(placeEvent.getPlayer().getUniqueId()))
+                            .setBlockKey(placeEvent.getBlockPlaced().getType().getKey().toString())
+                            .setBlockAgainstKey(placeEvent.getBlockAgainst().getType().getKey().toString())
+                            .setLocation(BridgeUtils.convertLocation(placeEvent.getBlockPlaced().getLocation()))
+                            .setCanBuild(placeEvent.canBuild())
                             .build()
                     ).build()
                 );

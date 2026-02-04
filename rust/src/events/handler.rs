@@ -6,6 +6,7 @@ use pumpkin::entity::player::Player;
 use pumpkin::plugin::{BoxFuture, Cancellable, EventHandler, Payload};
 use pumpkin::server::Server;
 use pumpkin_api_macros::with_runtime;
+use pumpkin_data::Block;
 use pumpkin_util::math::vector3::Vector3;
 use pumpkin_util::text::TextComponent;
 use tokio::sync::{mpsc, oneshot};
@@ -14,8 +15,8 @@ use crate::java::jvm::commands::JvmCommand;
 use crate::proto::patchbukkit::common::{Location, Uuid, Vec3, World};
 use crate::proto::patchbukkit::events::event::Data;
 use crate::proto::patchbukkit::events::{
-    Event, PlayerChatEvent, PlayerCommandEvent, PlayerJoinEvent, PlayerLeaveEvent, PlayerMoveEvent,
-    ServerBroadcastEvent, ServerCommandEvent,
+    BlockBreakEvent, BlockPlaceEvent, Event, PlayerChatEvent, PlayerCommandEvent, PlayerJoinEvent,
+    PlayerLeaveEvent, PlayerMoveEvent, PlayerInteractEvent, ServerBroadcastEvent, ServerCommandEvent,
 };
 
 pub struct EventContext {
@@ -219,6 +220,135 @@ impl PatchBukkitEvent for pumpkin::plugin::player::player_command_send::PlayerCo
     }
 }
 
+impl PatchBukkitEvent for pumpkin::plugin::player::player_interact_event::PlayerInteractEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        let world_uuid = self.player.world().uuid;
+        let yaw = self.player.living_entity.entity.yaw.load();
+        let pitch = self.player.living_entity.entity.pitch.load();
+
+        let clicked = self.clicked_pos.map(|pos| {
+            build_location(
+                world_uuid,
+                &Vector3::new(
+                    f64::from(pos.0.x),
+                    f64::from(pos.0.y),
+                    f64::from(pos.0.z),
+                ),
+                yaw,
+                pitch,
+            )
+        });
+
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::PlayerInteract(PlayerInteractEvent {
+                    player_uuid: Some(Uuid {
+                        value: self.player.gameprofile.id.to_string(),
+                    }),
+                    action: interact_action_to_bukkit(&self.action),
+                    block_key: block_to_key(self.block),
+                    clicked,
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, _data: Data) -> Option<()> {
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::block::block_break::BlockBreakEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        let (player_uuid, world_uuid) = if let Some(player) = &self.player {
+            (player.gameprofile.id.to_string(), Some(player.world().uuid))
+        } else {
+            ("00000000-0000-0000-0000-000000000000".to_string(), None)
+        };
+
+        let location = world_uuid.map(|world_uuid| {
+            build_location(
+                world_uuid,
+                &Vector3::new(
+                    f64::from(self.block_position.0.x),
+                    f64::from(self.block_position.0.y),
+                    f64::from(self.block_position.0.z),
+                ),
+                0.0,
+                0.0,
+            )
+        });
+
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::BlockBreak(BlockBreakEvent {
+                    player_uuid: Some(Uuid { value: player_uuid }),
+                    block_key: block_to_key(self.block),
+                    location,
+                    exp: self.exp,
+                    drop: self.drop,
+                })),
+            },
+            context: EventContext {
+                server,
+                player: self.player.clone(),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::BlockBreak(event) => {
+                self.exp = event.exp;
+                self.drop = event.drop;
+            }
+            _ => {}
+        }
+
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::block::block_place::BlockPlaceEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        let player_uuid = self.player.gameprofile.id.to_string();
+        let world_uuid = self.player.world().uuid;
+        let position = self.player.position();
+        let location = build_location(world_uuid, &position, 0.0, 0.0);
+
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::BlockPlace(BlockPlaceEvent {
+                    player_uuid: Some(Uuid { value: player_uuid }),
+                    block_key: block_to_key(self.block_placed),
+                    block_against_key: block_to_key(self.block_placed_against),
+                    location: Some(location),
+                    can_build: self.can_build,
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::BlockPlace(event) => {
+                self.can_build = event.can_build;
+            }
+            _ => {}
+        }
+
+        Some(())
+    }
+}
+
 impl PatchBukkitEvent for pumpkin::plugin::server::server_command::ServerCommandEvent {
     fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
         JvmEventPayload {
@@ -299,6 +429,27 @@ fn build_location(world_uuid: uuid::Uuid, position: &Vector3<f64>, yaw: f32, pit
 fn location_to_vec3(location: Location) -> Option<Vector3<f64>> {
     let pos = location.position?;
     Some(Vector3::new(pos.x, pos.y, pos.z))
+}
+
+fn block_to_key(block: &Block) -> String {
+    format!("minecraft:{}", block.name)
+}
+
+fn interact_action_to_bukkit(action: &pumpkin::plugin::player::player_interact_event::InteractAction) -> String {
+    match action {
+        pumpkin::plugin::player::player_interact_event::InteractAction::LeftClickBlock => {
+            "LEFT_CLICK_BLOCK".to_string()
+        }
+        pumpkin::plugin::player::player_interact_event::InteractAction::LeftClickAir => {
+            "LEFT_CLICK_AIR".to_string()
+        }
+        pumpkin::plugin::player::player_interact_event::InteractAction::RightClickAir => {
+            "RIGHT_CLICK_AIR".to_string()
+        }
+        pumpkin::plugin::player::player_interact_event::InteractAction::RightClickBlock => {
+            "RIGHT_CLICK_BLOCK".to_string()
+        }
+    }
 }
 
 pub struct PatchBukkitEventHandler<E: PatchBukkitEvent> {

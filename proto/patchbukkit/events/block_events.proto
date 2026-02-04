@@ -1,0 +1,30 @@
+syntax = "proto3";
+package patchbukkit.events;
+
+import "patchbukkit/common/types.proto";
+
+option java_multiple_files = true;
+option java_package = "patchbukkit.events";
+
+message BlockBreakEvent {
+  patchbukkit.common.UUID player_uuid = 1;
+  string block_key = 2;
+  patchbukkit.common.Location location = 3;
+  uint32 exp = 4;
+  bool drop = 5;
+}
+
+message BlockPlaceEvent {
+  patchbukkit.common.UUID player_uuid = 1;
+  string block_key = 2;
+  string block_against_key = 3;
+  patchbukkit.common.Location location = 4;
+  bool can_build = 5;
+}
+
+message PlayerInteractEvent {
+  patchbukkit.common.UUID player_uuid = 1;
+  string action = 2;
+  string block_key = 3;
+  patchbukkit.common.Location clicked = 4;
+}
