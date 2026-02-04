@@ -37,6 +37,7 @@ import org.bukkit.event.player.PlayerExpChangeEvent;
 import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.BroadcastMessageEvent;
@@ -579,6 +580,12 @@ public class PatchBukkitEventFactory {
                     : new Vector();
                 yield new PlayerInteractAtEntityEvent(player, entity, clickedPos, slot);
             }
+            case PLAYER_ITEM_HELD -> {
+                patchbukkit.events.PlayerItemHeldEvent heldEvent = event.getPlayerItemHeld();
+                Player player = getPlayer(heldEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+                yield new PlayerItemHeldEvent(player, heldEvent.getPreviousSlot(), heldEvent.getNewSlot());
+            }
             case PLAYER_INTERACT -> {
                 patchbukkit.events.PlayerInteractEvent interactEvent = event.getPlayerInteract();
                 Player player = getPlayer(interactEvent.getPlayerUuid().getValue());
@@ -977,6 +984,16 @@ public class PatchBukkitEventFactory {
                         .setValue(unregisterChannelEvent.getPlayer().getUniqueId().toString())
                         .build())
                     .setChannel(unregisterChannelEvent.getChannel())
+                    .build()
+            );
+        } else if (event instanceof PlayerItemHeldEvent heldEvent) {
+            eventBuilder.setPlayerItemHeld(
+                patchbukkit.events.PlayerItemHeldEvent.newBuilder()
+                    .setPlayerUuid(UUID.newBuilder()
+                        .setValue(heldEvent.getPlayer().getUniqueId().toString())
+                        .build())
+                    .setPreviousSlot(heldEvent.getPreviousSlot())
+                    .setNewSlot(heldEvent.getNewSlot())
                     .build()
             );
         } else if (event instanceof AsyncPlayerChatEvent chatEvent) {

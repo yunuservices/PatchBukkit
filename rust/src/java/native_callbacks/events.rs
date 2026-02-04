@@ -13,6 +13,7 @@ use pumpkin::plugin::player::player_exp_change::PlayerExpChangeEvent;
 use pumpkin::plugin::player::player_fish::PlayerFishEvent;
 use pumpkin::plugin::player::player_interact_entity::PlayerInteractEntityEvent;
 use pumpkin::plugin::player::player_interact_at_entity::PlayerInteractAtEntityEvent;
+use pumpkin::plugin::player::player_item_held::PlayerItemHeldEvent;
 use pumpkin::plugin::player::player_interact_event::{InteractAction, PlayerInteractEvent};
 use pumpkin::plugin::player::player_join::PlayerJoinEvent;
 use pumpkin::plugin::player::player_login::PlayerLoginEvent;
@@ -543,6 +544,23 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
                             pumpkin::plugin::player::player_interact_at_entity::PlayerInteractAtEntityEvent,
                             PatchBukkitEventHandler<
                                 pumpkin::plugin::player::player_interact_at_entity::PlayerInteractAtEntityEvent,
+                            >,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.player.PlayerItemHeldEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::player::player_item_held::PlayerItemHeldEvent,
+                            PatchBukkitEventHandler<
+                                pumpkin::plugin::player::player_item_held::PlayerItemHeldEvent,
                             >,
                         >(
                             Arc::new(PatchBukkitEventHandler::new(
@@ -1150,6 +1168,18 @@ pub fn ffi_native_bridge_call_event_impl(request: CallEventRequest) -> Option<Ca
                         player_interact_at_entity_event_data.entity_type,
                         player_interact_at_entity_event_data.hand,
                         position,
+                    );
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
+                Data::PlayerItemHeld(player_item_held_event_data) => {
+                    let uuid =
+                        uuid::Uuid::parse_str(&player_item_held_event_data.player_uuid?.value).ok()?;
+                    let player = context.server.get_player_by_uuid(uuid)?;
+                    let pumpkin_event = PlayerItemHeldEvent::new(
+                        player,
+                        player_item_held_event_data.previous_slot,
+                        player_item_held_event_data.new_slot,
                     );
                     context.server.plugin_manager.fire(pumpkin_event).await;
                     Some(true)

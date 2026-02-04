@@ -29,7 +29,7 @@ use crate::proto::patchbukkit::events::{
     PlayerChangedMainHandEvent,
     PlayerRegisterChannelEvent, PlayerUnregisterChannelEvent, PlayerDropItemEvent,
     PlayerEditBookEvent, PlayerEggThrowEvent, PlayerExpChangeEvent, PlayerFishEvent,
-    PlayerInteractEntityEvent, PlayerInteractAtEntityEvent,
+    PlayerInteractEntityEvent, PlayerInteractAtEntityEvent, PlayerItemHeldEvent,
 };
 
 pub struct EventContext {
@@ -1188,6 +1188,37 @@ impl PatchBukkitEvent for pumpkin::plugin::player::player_interact_at_entity::Pl
                 if let Some(pos) = event.clicked_position {
                     self.clicked_position = Vector3::new(pos.x as f32, pos.y as f32, pos.z as f32);
                 }
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::player::player_item_held::PlayerItemHeldEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::PlayerItemHeld(PlayerItemHeldEvent {
+                    player_uuid: Some(Uuid {
+                        value: self.player.gameprofile.id.to_string(),
+                    }),
+                    previous_slot: self.previous_slot,
+                    new_slot: self.new_slot,
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::PlayerItemHeld(event) => {
+                self.previous_slot = event.previous_slot;
+                self.new_slot = event.new_slot;
             }
             _ => {}
         }

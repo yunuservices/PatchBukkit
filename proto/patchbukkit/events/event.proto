@@ -50,6 +50,7 @@ message Event {
     PlayerFishEvent player_fish = 35;
     PlayerInteractEntityEvent player_interact_entity = 36;
     PlayerInteractAtEntityEvent player_interact_at_entity = 37;
+    PlayerItemHeldEvent player_item_held = 38;
   }
 }
 
