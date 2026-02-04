@@ -2,9 +2,13 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use j4rs::{Instance, InvocationArg, Jvm};
+use prost::Message;
 use pumpkin::{entity::player::Player, server::Server};
 
-use crate::events::handler::PatchBukkitEvent;
+use crate::{
+    events::handler::JvmEventPayload,
+    proto::patchbukkit::events::{FireEventResponse, event::Data},
+};
 
 pub struct EventManager {}
 
@@ -23,61 +27,71 @@ impl EventManager {
     pub fn fire_event(
         &self,
         jvm: &Jvm,
-        event: PatchBukkitEvent,
+        payload: JvmEventPayload,
         plugin_name: String,
-    ) -> Result<bool> {
+    ) -> Result<FireEventResponse> {
         let server = jvm.invoke_static("org.bukkit.Bukkit", "getServer", InvocationArg::empty())?;
         let patch_server = jvm.cast(&server, "org.patchbukkit.PatchBukkitServer")?;
         let event_manager = jvm.invoke(&patch_server, "getEventManager", InvocationArg::empty())?;
 
-        let j_event = match event {
-            PatchBukkitEvent::PlayerJoinEvent {
-                server,
-                player,
-                join_message,
-            } => {
-                Self::register_player(jvm, &patch_server, &player, &server)?;
-                jvm.invoke_static(
-                    "org.patchbukkit.events.PatchBukkitEventFactory",
-                    "createPlayerJoinEvent",
-                    &[
-                        InvocationArg::try_from(player.gameprofile.id.to_string())?,
-                        InvocationArg::try_from(join_message)?,
-                    ],
-                )?
-            }
-        };
+        if let Some(ref event) = payload.event.data
+            && matches!(event, Data::PlayerJoin(_))
+            && let Some(ref player) = payload.context.player
+        {
+            Self::register_player(jvm, &patch_server, player, &payload.context.server)?;
+        }
 
-        let j_event_for_fire = jvm.clone_instance(&j_event)?;
+        let bytes = payload.event.encode_to_vec();
+        let j_bytes = jvm.create_java_array(
+            "byte",
+            &bytes
+                .iter()
+                .map(|&b| {
+                    InvocationArg::try_from(b as i8)
+                        .unwrap()
+                        .into_primitive()
+                        .unwrap()
+                })
+                .collect::<Vec<_>>(),
+        )?;
+
+        let j_event = jvm.invoke_static(
+            "org.patchbukkit.events.PatchBukkitEventFactory",
+            "createEventFromBytes",
+            &[InvocationArg::from(j_bytes)],
+        )?;
+
+        let is_null: bool = jvm.to_rust(jvm.invoke_static(
+            "java.util.Objects",
+            "isNull",
+            &[InvocationArg::from(jvm.clone_instance(&j_event)?)],
+        )?)?;
+
+        if is_null {
+            return Err(anyhow::anyhow!(
+                "Failed to create event - factory returned null"
+            ));
+        }
+
         jvm.invoke(
             &event_manager,
             "fireEvent",
             &[
-                InvocationArg::from(j_event_for_fire),
+                InvocationArg::from(jvm.clone_instance(&j_event)?),
                 InvocationArg::try_from(plugin_name)?,
             ],
         )?;
 
-        let is_cancellable: bool = jvm.to_rust(jvm.invoke_static(
+        let response_bytes: Vec<i8> = jvm.to_rust(jvm.invoke_static(
             "org.patchbukkit.events.PatchBukkitEventFactory",
-            "isCancellable",
-            &[InvocationArg::from(jvm.clone_instance(&j_event)?)],
+            "toFireEventResponse",
+            &[InvocationArg::from(j_event)],
         )?)?;
 
-        let cancelled = if is_cancellable {
-            match jvm.invoke(
-                &jvm.clone_instance(&j_event)?,
-                "isCancelled",
-                InvocationArg::empty(),
-            ) {
-                Ok(instance) => jvm.to_rust::<bool>(instance).unwrap_or(false),
-                Err(_) => false,
-            }
-        } else {
-            false
-        };
+        let response_bytes: Vec<u8> = response_bytes.iter().map(|&b| b as u8).collect();
+        let response = FireEventResponse::decode(response_bytes.as_slice())?;
 
-        Ok(cancelled)
+        Ok(response)
     }
 
     pub fn register_player(

@@ -51,10 +51,12 @@ public class PatchBukkitEventManager {
         switch (event.getEventName()) {
             case "org.bukkit.event.player.PlayerJoinEvent":
                 var castedEvent = (org.bukkit.event.player.PlayerJoinEvent) event;
-                request.setPlayerJoin(
-                    PlayerJoinEvent.newBuilder()
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setPlayerJoin(
+                        PlayerJoinEvent.newBuilder()
                             .setJoinMessage(castedEvent.joinMessage().toString())
-                            .setPlayerUuid(BridgeUtils.convertUuid(castedEvent.getPlayer().getUniqueId()))
+                            .setPlayerUuid(BridgeUtils.convertUuid(castedEvent.getPlayer().getUniqueId())).build()
+                    ).build()
                 );
                 break;
         }

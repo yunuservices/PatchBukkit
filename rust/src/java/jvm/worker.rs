@@ -4,13 +4,16 @@ use j4rs::{InvocationArg, Jvm, JvmBuilder};
 use pumpkin::plugin::Context;
 use tokio::sync::mpsc;
 
-use crate::java::{
-    jar::read_configs_from_jar,
-    jvm::commands::{JvmCommand, LoadPluginResult},
-    native_callbacks::{init_callback_context, initialize_callbacks},
-    plugin::{
-        command_manager::CommandManager, event_manager::EventManager, manager::PluginManager,
+use crate::{
+    java::{
+        jar::read_configs_from_jar,
+        jvm::commands::{JvmCommand, LoadPluginResult},
+        native_callbacks::{init_callback_context, initialize_callbacks},
+        plugin::{
+            command_manager::CommandManager, event_manager::EventManager, manager::PluginManager,
+        },
     },
+    proto::patchbukkit::events::FireEventResponse,
 };
 
 pub struct JvmWorker {
@@ -138,24 +141,24 @@ impl JvmWorker {
                 JvmCommand::FireEvent {
                     respond_to,
                     plugin,
-                    patchbukkit_event,
+                    payload,
                 } => {
                     let jvm = match self.jvm {
                         Some(ref jvm) => jvm,
                         None => &Jvm::attach_thread().unwrap(),
                     };
 
-                    let cancelled =
-                        match self
-                            .event_manager
-                            .fire_event(jvm, patchbukkit_event, plugin)
-                        {
-                            Ok(c) => c,
-                            Err(e) => {
-                                log::error!("Failed to fire event: {e}");
-                                false
+                    let original_event = payload.event.clone();
+                    let cancelled = match self.event_manager.fire_event(jvm, payload, plugin) {
+                        Ok(c) => c,
+                        Err(e) => {
+                            log::error!("Failed to fire event: {e}");
+                            FireEventResponse {
+                                cancelled: false,
+                                data: Some(original_event),
                             }
-                        };
+                        }
+                    };
 
                     let _ = respond_to.send(cancelled);
                 }

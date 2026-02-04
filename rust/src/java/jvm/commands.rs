@@ -6,7 +6,10 @@ use pumpkin_protocol::java::client::play::CommandSuggestion;
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 
-use crate::{commands::SimpleCommandSender, events::handler::PatchBukkitEvent};
+use crate::{
+    commands::SimpleCommandSender, events::handler::JvmEventPayload,
+    proto::patchbukkit::events::FireEventResponse,
+};
 
 pub enum LoadPluginResult {
     SuccessfullyLoadedSpigot,
@@ -43,9 +46,9 @@ pub enum JvmCommand {
         respond_to: oneshot::Sender<Result<()>>,
     },
     FireEvent {
-        patchbukkit_event: PatchBukkitEvent,
+        payload: JvmEventPayload,
         plugin: String,
-        respond_to: oneshot::Sender<bool>, // true = cancelled
+        respond_to: oneshot::Sender<FireEventResponse>, // true = cancelled
     },
     TriggerCommand {
         full_command: String,

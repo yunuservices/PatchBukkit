@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use pumpkin::entity::player::Player;
@@ -8,37 +9,62 @@ use pumpkin_api_macros::with_runtime;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::java::jvm::commands::JvmCommand;
+use crate::proto::patchbukkit::common::Uuid;
+use crate::proto::patchbukkit::events::event::Data;
+use crate::proto::patchbukkit::events::{Event, PlayerJoinEvent};
 
-#[derive(Clone)]
-pub enum PatchBukkitEvent {
-    PlayerJoinEvent {
-        server: Arc<Server>,
-        player: Arc<Player>,
-        join_message: String,
-    },
+pub struct EventContext {
+    pub server: Arc<Server>,
+    pub player: Option<Arc<Player>>,
 }
 
-pub trait IntoEventData {
-    fn get_patch_bukkit_event(&self, server: Arc<Server>) -> PatchBukkitEvent;
+pub struct JvmEventPayload {
+    pub event: Event,
+    pub context: EventContext,
 }
 
-impl IntoEventData for pumpkin::plugin::player::player_join::PlayerJoinEvent {
-    fn get_patch_bukkit_event(&self, server: Arc<Server>) -> PatchBukkitEvent {
-        PatchBukkitEvent::PlayerJoinEvent {
-            server,
-            player: self.player.clone(),
-            join_message: self.join_message.clone().get_text(),
+pub trait PatchBukkitEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload;
+    fn apply_modifications(&mut self, server: &Arc<Server>, data: Data) -> Option<()>;
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::player::player_join::PlayerJoinEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::PlayerJoin(PlayerJoinEvent {
+                    player_uuid: Some(Uuid {
+                        value: self.player.gameprofile.id.to_string(),
+                    }),
+                    join_message: serde_json::to_string(&self.join_message).unwrap(),
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
         }
+    }
+
+    fn apply_modifications(&mut self, server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::PlayerJoin(event) => {
+                self.join_message = serde_json::from_str(&event.join_message).ok()?;
+                server.get_player_by_uuid(uuid::Uuid::from_str(&event.player_uuid?.value).ok()?)?;
+            }
+        }
+
+        Some(())
     }
 }
 
-pub struct PatchBukkitEventHandler<E: IntoEventData> {
+pub struct PatchBukkitEventHandler<E: PatchBukkitEvent> {
     plugin_name: String,
     command_tx: mpsc::Sender<JvmCommand>,
     _phantom: PhantomData<E>,
 }
 
-impl<E: IntoEventData> PatchBukkitEventHandler<E> {
+impl<E: PatchBukkitEvent> PatchBukkitEventHandler<E> {
     #[must_use]
     pub const fn new(plugin_name: String, command_tx: mpsc::Sender<JvmCommand>) -> Self {
         Self {
@@ -52,7 +78,7 @@ impl<E: IntoEventData> PatchBukkitEventHandler<E> {
 #[with_runtime(global)]
 impl<E> EventHandler<E> for PatchBukkitEventHandler<E>
 where
-    E: IntoEventData + Payload + Cancellable + 'static,
+    E: PatchBukkitEvent + Payload + Cancellable + 'static,
 {
     fn handle_blocking<'a>(
         &'a self,
@@ -65,7 +91,7 @@ where
             let (tx, rx) = oneshot::channel();
             if let Err(e) = command_tx
                 .send(JvmCommand::FireEvent {
-                    patchbukkit_event: event.get_patch_bukkit_event(server.clone()),
+                    payload: event.to_payload(server.clone()),
                     respond_to: tx,
                     plugin: self.plugin_name.clone(),
                 })
@@ -76,11 +102,9 @@ where
             }
 
             match rx.await {
-                Ok(cancelled) => {
-                    if cancelled {
-                        log::debug!("Event was cancelled by a Java plugin");
-                        event.set_cancelled(true);
-                    }
+                Ok(response) => {
+                    event.set_cancelled(response.cancelled);
+                    event.apply_modifications(server, response.data.unwrap().data.unwrap());
                 }
                 Err(_) => {
                     log::warn!("JVM worker dropped response channel for event");

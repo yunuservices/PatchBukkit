@@ -8,6 +8,12 @@ import "patchbukkit/events/player_events.proto";
 option java_multiple_files = true;
 option java_package = "patchbukkit.events";
 
+message Event {
+  oneof data {
+    PlayerJoinEvent player_join = 1;
+  }
+}
+
 message RegisterEventRequest {
   string event_type = 1;
   string plugin_name = 2;
@@ -16,11 +22,14 @@ message RegisterEventRequest {
 }
 
 message CallEventRequest {
-  oneof event_data {
-    PlayerJoinEvent player_join = 1;
-  }
+  Event event = 1;
 }
 
 message CallEventResponse {
   bool handled = 1;
+}
+
+message FireEventResponse {
+  bool cancelled = 1;
+  Event data = 2;
 }

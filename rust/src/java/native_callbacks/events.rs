@@ -6,7 +6,7 @@ use pumpkin_util::text::TextComponent;
 
 use crate::events::handler::PatchBukkitEventHandler;
 use crate::java::native_callbacks::CALLBACK_CONTEXT;
-use crate::proto::patchbukkit::events::call_event_request::EventData;
+use crate::proto::patchbukkit::events::event::Data;
 use crate::proto::patchbukkit::events::{
     CallEventRequest, CallEventResponse, RegisterEventRequest,
 };
@@ -65,15 +65,15 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
 
 pub fn ffi_native_bridge_call_event_impl(request: CallEventRequest) -> Option<CallEventResponse> {
     let ctx = CALLBACK_CONTEXT.get()?;
-    let event_data = request.event_data?;
-    log::debug!("Java calling event {:?}", event_data);
+    let event = request.event?;
+    log::debug!("Java calling event {:?}", event);
 
     let context = ctx.plugin_context.clone();
 
     let handled = tokio::task::block_in_place(|| {
         ctx.runtime.block_on(async {
-            match event_data {
-                EventData::PlayerJoin(player_join_event_data) => {
+            match event.data? {
+                Data::PlayerJoin(player_join_event_data) => {
                     let uuid =
                         uuid::Uuid::parse_str(&player_join_event_data.player_uuid?.value).ok()?;
                     let player = context.server.get_player_by_uuid(uuid)?;
