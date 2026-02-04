@@ -58,6 +58,7 @@ import org.bukkit.event.player.PlayerShearEntityEvent;
 import org.bukkit.event.player.PlayerStatisticIncrementEvent;
 import org.bukkit.event.player.PlayerVelocityEvent;
 import org.spigotmc.event.player.PlayerSpawnLocationEvent;
+import org.bukkit.event.player.PlayerHarvestBlockEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.BroadcastMessageEvent;
@@ -933,6 +934,28 @@ public class PatchBukkitEventFactory {
                 }
                 yield new PlayerVelocityEvent(player, velocity);
             }
+            case PLAYER_HARVEST_BLOCK -> {
+                patchbukkit.events.PlayerHarvestBlockEvent harvestEvent = event.getPlayerHarvestBlock();
+                Player player = getPlayer(harvestEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+                Location location = BridgeUtils.convertLocation(harvestEvent.getBlockLocation());
+                if (location == null || !(location.getWorld() instanceof PatchBukkitWorld world)) {
+                    yield null;
+                }
+                Block block = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    harvestEvent.getBlockKey()
+                );
+                ItemStack tool = materialToItem(harvestEvent.getItemKey(), harvestEvent.getItemAmount());
+                org.bukkit.event.Event constructed = createHarvestBlockEvent(player, block, tool);
+                if (constructed instanceof PlayerHarvestBlockEvent harvest) {
+                    yield harvest;
+                }
+                yield null;
+            }
             case PLAYER_INTERACT -> {
                 patchbukkit.events.PlayerInteractEvent interactEvent = event.getPlayerInteract();
                 Player player = getPlayer(interactEvent.getPlayerUuid().getValue());
@@ -1666,6 +1689,26 @@ public class PatchBukkitEventFactory {
                     .setVelocity(vec)
                     .build()
             );
+        } else if (event instanceof PlayerHarvestBlockEvent harvestEvent) {
+            Block harvestedBlock = resolveHarvestedBlock(harvestEvent);
+            ItemStack tool = resolveHarvestTool(harvestEvent);
+            Location location = harvestedBlock != null ? harvestedBlock.getLocation() : null;
+            String blockKey = harvestedBlock != null
+                ? harvestedBlock.getType().getKey().toString()
+                : "minecraft:air";
+            String itemKey = tool != null ? tool.getType().getKey().toString() : "minecraft:air";
+            int itemAmount = tool != null ? tool.getAmount() : 0;
+            eventBuilder.setPlayerHarvestBlock(
+                patchbukkit.events.PlayerHarvestBlockEvent.newBuilder()
+                    .setPlayerUuid(UUID.newBuilder()
+                        .setValue(harvestEvent.getPlayer().getUniqueId().toString())
+                        .build())
+                    .setBlockLocation(BridgeUtils.convertLocation(location))
+                    .setBlockKey(blockKey)
+                    .setItemKey(itemKey)
+                    .setItemAmount(itemAmount)
+                    .build()
+            );
         } else if (event instanceof AsyncPlayerChatEvent chatEvent) {
             var playerEventBuilder = patchbukkit.events.PlayerChatEvent.newBuilder()
                 .setPlayerUuid(UUID.newBuilder()
@@ -1983,6 +2026,87 @@ public class PatchBukkitEventFactory {
             }
         }
         return packUuid != null ? packUuid : java.util.UUID.randomUUID();
+    }
+
+    @Nullable
+    private static Block resolveHarvestedBlock(@NotNull PlayerHarvestBlockEvent event) {
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getHarvestedBlock");
+            Object value = method.invoke(event);
+            if (value instanceof Block block) {
+                return block;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getBlock");
+            Object value = method.invoke(event);
+            if (value instanceof Block block) {
+                return block;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static ItemStack resolveHarvestTool(@NotNull PlayerHarvestBlockEvent event) {
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getHarvestingTool");
+            Object value = method.invoke(event);
+            if (value instanceof ItemStack stack) {
+                return stack;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getTool");
+            Object value = method.invoke(event);
+            if (value instanceof ItemStack stack) {
+                return stack;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static org.bukkit.event.Event createHarvestBlockEvent(
+        @NotNull Player player,
+        @NotNull Block block,
+        @NotNull ItemStack tool
+    ) {
+        try {
+            java.lang.reflect.Constructor<?> ctor = PlayerHarvestBlockEvent.class.getConstructor(
+                Player.class,
+                Block.class,
+                ItemStack.class,
+                java.util.List.class
+            );
+            return (org.bukkit.event.Event) ctor.newInstance(
+                player,
+                block,
+                tool,
+                java.util.Collections.emptyList()
+            );
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<?> ctor = PlayerHarvestBlockEvent.class.getConstructor(
+                Player.class,
+                Block.class,
+                ItemStack.class
+            );
+            return (org.bukkit.event.Event) ctor.newInstance(player, block, tool);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
     }
 
     @Nullable

@@ -37,7 +37,7 @@ use crate::proto::patchbukkit::events::{
     PlayerSwapHandItemsEvent, PlayerResourcePackStatusEvent, PlayerRespawnEvent,
     PlayerPickupArrowEvent, PlayerPortalEvent, PlayerRecipeDiscoverEvent, PlayerRiptideEvent,
     PlayerShearEntityEvent, PlayerSpawnLocationEvent, PlayerStatisticIncrementEvent,
-    PlayerVelocityEvent,
+    PlayerVelocityEvent, PlayerHarvestBlockEvent,
 };
 
 pub struct EventContext {
@@ -2152,6 +2152,80 @@ impl PatchBukkitEvent for pumpkin::plugin::player::player_velocity::PlayerVeloci
             Data::PlayerVelocity(event) => {
                 if let Some(velocity) = event.velocity {
                     self.velocity = Vector3::new(velocity.x, velocity.y, velocity.z);
+                }
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::player::player_harvest_block::PlayerHarvestBlockEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        let yaw = self.player.living_entity.entity.yaw.load();
+        let pitch = self.player.living_entity.entity.pitch.load();
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::PlayerHarvestBlock(PlayerHarvestBlockEvent {
+                    player_uuid: Some(Uuid {
+                        value: self.player.gameprofile.id.to_string(),
+                    }),
+                    block_location: Some(build_location(
+                        self.player.world().uuid,
+                        &Vector3::new(
+                            f64::from(self.block_pos.0.x),
+                            f64::from(self.block_pos.0.y),
+                            f64::from(self.block_pos.0.z),
+                        ),
+                        yaw,
+                        pitch,
+                    )),
+                    block_key: self.block_key.clone(),
+                    item_key: item_to_key(self.item_stack.item),
+                    item_amount: self.item_stack.item_count as i32,
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::PlayerHarvestBlock(event) => {
+                if let Some(loc) = event.block_location {
+                    if let Some(pos) = location_to_vec3(loc.clone()) {
+                        self.block_pos = pumpkin_util::math::position::BlockPos::new(
+                            pos.x.floor() as i32,
+                            pos.y.floor() as i32,
+                            pos.z.floor() as i32,
+                        );
+                    }
+                    if let Some(world) = loc.world.and_then(|w| w.uuid) {
+                        if let Ok(uuid) = uuid::Uuid::from_str(&world.value) {
+                            if uuid != self.player.world().uuid {
+                                // World changes are not supported for harvest event.
+                            }
+                        }
+                    }
+                }
+                if !event.block_key.is_empty() {
+                    self.block_key = event.block_key;
+                }
+                if !event.item_key.is_empty() || event.item_amount > 0 {
+                    let key = if event.item_key.is_empty() {
+                        item_to_key(self.item_stack.item)
+                    } else {
+                        event.item_key
+                    };
+                    let count = if event.item_amount > 0 {
+                        event.item_amount as u8
+                    } else {
+                        self.item_stack.item_count
+                    };
+                    self.item_stack = item_stack_from_key(&key, count);
                 }
             }
             _ => {}

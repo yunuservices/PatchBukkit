@@ -34,6 +34,7 @@ use pumpkin::plugin::player::player_shear_entity::PlayerShearEntityEvent;
 use pumpkin::plugin::player::player_spawn_location::PlayerSpawnLocationEvent;
 use pumpkin::plugin::player::player_statistic_increment::PlayerStatisticIncrementEvent;
 use pumpkin::plugin::player::player_velocity::PlayerVelocityEvent;
+use pumpkin::plugin::player::player_harvest_block::PlayerHarvestBlockEvent;
 use pumpkin::plugin::player::player_interact_event::{InteractAction, PlayerInteractEvent};
 use pumpkin::plugin::player::player_join::PlayerJoinEvent;
 use pumpkin::plugin::player::player_login::PlayerLoginEvent;
@@ -922,6 +923,23 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
                             pumpkin::plugin::player::player_velocity::PlayerVelocityEvent,
                             PatchBukkitEventHandler<
                                 pumpkin::plugin::player::player_velocity::PlayerVelocityEvent,
+                            >,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.player.PlayerHarvestBlockEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::player::player_harvest_block::PlayerHarvestBlockEvent,
+                            PatchBukkitEventHandler<
+                                pumpkin::plugin::player::player_harvest_block::PlayerHarvestBlockEvent,
                             >,
                         >(
                             Arc::new(PatchBukkitEventHandler::new(
@@ -1929,6 +1947,50 @@ pub fn ffi_native_bridge_call_event_impl(request: CallEventRequest) -> Option<Ca
                         .map(|v| Vector3::new(v.x, v.y, v.z))
                         .unwrap_or_else(Vector3::default);
                     let pumpkin_event = PlayerVelocityEvent::new(player, velocity);
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
+                Data::PlayerHarvestBlock(player_harvest_block_event_data) => {
+                    let uuid =
+                        uuid::Uuid::parse_str(&player_harvest_block_event_data.player_uuid?.value).ok()?;
+                    let player = context.server.get_player_by_uuid(uuid)?;
+                    let (world_uuid, pos) =
+                        if let Some(loc) = player_harvest_block_event_data.block_location {
+                            let world_uuid = loc
+                                .world
+                                .and_then(|w| w.uuid)
+                                .and_then(|uuid| uuid::Uuid::parse_str(&uuid.value).ok())
+                                .unwrap_or_else(|| player.world().uuid);
+                            let pos = location_to_vec3(loc).unwrap_or_else(|| player.position());
+                            (world_uuid, pos)
+                        } else {
+                            (player.world().uuid, player.position())
+                        };
+                    let block_pos = pumpkin_util::math::position::BlockPos::new(
+                        pos.x.floor() as i32,
+                        pos.y.floor() as i32,
+                        pos.z.floor() as i32,
+                    );
+                    let key = if player_harvest_block_event_data.item_key.is_empty() {
+                        "minecraft:air"
+                    } else {
+                        player_harvest_block_event_data.item_key.as_str()
+                    };
+                    let item = item_stack_from_key(
+                        key,
+                        player_harvest_block_event_data.item_amount,
+                    );
+                    let block_key = if player_harvest_block_event_data.block_key.is_empty() {
+                        "minecraft:air".to_string()
+                    } else {
+                        player_harvest_block_event_data.block_key
+                    };
+                    let pumpkin_event = PlayerHarvestBlockEvent::new(
+                        player,
+                        block_pos,
+                        block_key,
+                        item,
+                    );
                     context.server.plugin_manager.fire(pumpkin_event).await;
                     Some(true)
                 }

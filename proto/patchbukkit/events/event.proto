@@ -71,6 +71,7 @@ message Event {
     PlayerSpawnLocationEvent player_spawn_location = 56;
     PlayerStatisticIncrementEvent player_statistic_increment = 57;
     PlayerVelocityEvent player_velocity = 58;
+    PlayerHarvestBlockEvent player_harvest_block = 59;
   }
 }
 

@@ -898,6 +898,70 @@ public class PatchBukkitEventManager {
                     ).build()
                 );
                 break;
+            case "org.bukkit.event.player.PlayerHarvestBlockEvent":
+                var harvestEvent = (org.bukkit.event.player.PlayerHarvestBlockEvent) event;
+                Block harvestedBlock = null;
+                ItemStack harvestTool = null;
+                try {
+                    var method = harvestEvent.getClass().getMethod("getHarvestedBlock");
+                    Object value = method.invoke(harvestEvent);
+                    if (value instanceof Block block) {
+                        harvestedBlock = block;
+                    }
+                } catch (ReflectiveOperationException ignored) {
+                    // ignore
+                }
+                if (harvestedBlock == null) {
+                    try {
+                        var method = harvestEvent.getClass().getMethod("getBlock");
+                        Object value = method.invoke(harvestEvent);
+                        if (value instanceof Block block) {
+                            harvestedBlock = block;
+                        }
+                    } catch (ReflectiveOperationException ignored) {
+                        // ignore
+                    }
+                }
+                try {
+                    var method = harvestEvent.getClass().getMethod("getHarvestingTool");
+                    Object value = method.invoke(harvestEvent);
+                    if (value instanceof ItemStack stack) {
+                        harvestTool = stack;
+                    }
+                } catch (ReflectiveOperationException ignored) {
+                    // ignore
+                }
+                if (harvestTool == null) {
+                    try {
+                        var method = harvestEvent.getClass().getMethod("getTool");
+                        Object value = method.invoke(harvestEvent);
+                        if (value instanceof ItemStack stack) {
+                            harvestTool = stack;
+                        }
+                    } catch (ReflectiveOperationException ignored) {
+                        // ignore
+                    }
+                }
+                String harvestBlockKey = harvestedBlock != null
+                    ? harvestedBlock.getType().getKey().toString()
+                    : "minecraft:air";
+                String harvestItemKey = harvestTool != null
+                    ? harvestTool.getType().getKey().toString()
+                    : "minecraft:air";
+                int harvestItemAmount = harvestTool != null ? harvestTool.getAmount() : 0;
+                Location harvestLocation = harvestedBlock != null ? harvestedBlock.getLocation() : null;
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setPlayerHarvestBlock(
+                        patchbukkit.events.PlayerHarvestBlockEvent.newBuilder()
+                            .setPlayerUuid(BridgeUtils.convertUuid(harvestEvent.getPlayer().getUniqueId()))
+                            .setBlockLocation(BridgeUtils.convertLocation(harvestLocation))
+                            .setBlockKey(harvestBlockKey)
+                            .setItemKey(harvestItemKey)
+                            .setItemAmount(harvestItemAmount)
+                            .build()
+                    ).build()
+                );
+                break;
             case "org.bukkit.event.player.PlayerInteractEvent":
                 var interactEvent = (org.bukkit.event.player.PlayerInteractEvent) event;
                 var clicked = interactEvent.getClickedBlock();

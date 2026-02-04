@@ -264,6 +264,14 @@ message PlayerVelocityEvent {
   patchbukkit.common.Vec3 velocity = 2;
 }
 
+message PlayerHarvestBlockEvent {
+  patchbukkit.common.UUID player_uuid = 1;
+  patchbukkit.common.Location block_location = 2;
+  string block_key = 3;
+  string item_key = 4;
+  int32 item_amount = 5;
+}
+
 message AsyncPlayerPreLoginEvent {
   string name = 1;
   patchbukkit.common.UUID player_uuid = 2;
