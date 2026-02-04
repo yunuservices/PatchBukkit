@@ -28,7 +28,7 @@ use crate::proto::patchbukkit::events::{
     PlayerBucketEmptyEvent, PlayerBucketFillEvent, PlayerBucketEntityEvent,
     PlayerChangedMainHandEvent,
     PlayerRegisterChannelEvent, PlayerUnregisterChannelEvent, PlayerDropItemEvent,
-    PlayerEditBookEvent,
+    PlayerEditBookEvent, PlayerEggThrowEvent,
 };
 
 pub struct EventContext {
@@ -964,6 +964,51 @@ impl PatchBukkitEvent for pumpkin::plugin::player::player_edit_book::PlayerEditB
                 } else {
                     Some(event.title)
                 };
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::player::player_egg_throw::PlayerEggThrowEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::PlayerEggThrow(PlayerEggThrowEvent {
+                    player_uuid: Some(Uuid {
+                        value: self.player.gameprofile.id.to_string(),
+                    }),
+                    egg_uuid: Some(Uuid {
+                        value: self.egg_uuid.to_string(),
+                    }),
+                    hatching: self.hatching,
+                    num_hatches: i32::from(self.num_hatches),
+                    hatching_type: self.hatching_type.clone(),
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::PlayerEggThrow(event) => {
+                if let Some(uuid) = event.egg_uuid {
+                    if let Ok(egg_uuid) = uuid::Uuid::from_str(&uuid.value) {
+                        self.egg_uuid = egg_uuid;
+                    }
+                }
+                self.hatching = event.hatching;
+                if event.num_hatches >= 0 {
+                    self.num_hatches = event.num_hatches.min(u8::MAX as i32) as u8;
+                }
+                if !event.hatching_type.is_empty() {
+                    self.hatching_type = event.hatching_type;
+                }
             }
             _ => {}
         }

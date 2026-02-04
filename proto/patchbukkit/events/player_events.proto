@@ -80,6 +80,14 @@ message PlayerEditBookEvent {
   bool is_signing = 5;
 }
 
+message PlayerEggThrowEvent {
+  patchbukkit.common.UUID player_uuid = 1;
+  patchbukkit.common.UUID egg_uuid = 2;
+  bool hatching = 3;
+  int32 num_hatches = 4;
+  string hatching_type = 5;
+}
+
 message AsyncPlayerPreLoginEvent {
   string name = 1;
   patchbukkit.common.UUID player_uuid = 2;

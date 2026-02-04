@@ -8,6 +8,7 @@ use pumpkin::plugin::player::player_command_preprocess::PlayerCommandPreprocessE
 use pumpkin::plugin::player::player_command_send::PlayerCommandSendEvent;
 use pumpkin::plugin::player::player_drop_item::PlayerDropItemEvent;
 use pumpkin::plugin::player::player_edit_book::PlayerEditBookEvent;
+use pumpkin::plugin::player::player_egg_throw::PlayerEggThrowEvent;
 use pumpkin::plugin::player::player_interact_event::{InteractAction, PlayerInteractEvent};
 use pumpkin::plugin::player::player_join::PlayerJoinEvent;
 use pumpkin::plugin::player::player_login::PlayerLoginEvent;
@@ -453,6 +454,23 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
                             pumpkin::plugin::player::player_edit_book::PlayerEditBookEvent,
                             PatchBukkitEventHandler<
                                 pumpkin::plugin::player::player_edit_book::PlayerEditBookEvent,
+                            >,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.player.PlayerEggThrowEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::player::player_egg_throw::PlayerEggThrowEvent,
+                            PatchBukkitEventHandler<
+                                pumpkin::plugin::player::player_egg_throw::PlayerEggThrowEvent,
                             >,
                         >(
                             Arc::new(PatchBukkitEventHandler::new(
@@ -979,6 +997,22 @@ pub fn ffi_native_bridge_call_event_impl(request: CallEventRequest) -> Option<Ca
                         player_edit_book_event_data.pages,
                         title,
                         player_edit_book_event_data.is_signing,
+                    );
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
+                Data::PlayerEggThrow(player_egg_throw_event_data) => {
+                    let uuid =
+                        uuid::Uuid::parse_str(&player_egg_throw_event_data.player_uuid?.value).ok()?;
+                    let player = context.server.get_player_by_uuid(uuid)?;
+                    let egg_uuid =
+                        uuid::Uuid::parse_str(&player_egg_throw_event_data.egg_uuid?.value).ok()?;
+                    let pumpkin_event = PlayerEggThrowEvent::new(
+                        player,
+                        egg_uuid,
+                        player_egg_throw_event_data.hatching,
+                        player_egg_throw_event_data.num_hatches.min(u8::MAX as i32) as u8,
+                        player_egg_throw_event_data.hatching_type,
                     );
                     context.server.plugin_manager.fire(pumpkin_event).await;
                     Some(true)

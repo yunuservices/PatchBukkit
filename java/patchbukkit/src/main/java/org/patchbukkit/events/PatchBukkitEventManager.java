@@ -427,6 +427,25 @@ public class PatchBukkitEventManager {
                     ).build()
                 );
                 break;
+            case "org.bukkit.event.player.PlayerEggThrowEvent":
+                var eggEvent = (org.bukkit.event.player.PlayerEggThrowEvent) event;
+                var egg = eggEvent.getEgg();
+                var eggUuid = egg != null ? egg.getUniqueId() : java.util.UUID.randomUUID();
+                var hatchingType = eggEvent.getHatchingType() != null
+                    ? eggEvent.getHatchingType().name()
+                    : "CHICKEN";
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setPlayerEggThrow(
+                        patchbukkit.events.PlayerEggThrowEvent.newBuilder()
+                            .setPlayerUuid(BridgeUtils.convertUuid(eggEvent.getPlayer().getUniqueId()))
+                            .setEggUuid(BridgeUtils.convertUuid(eggUuid))
+                            .setHatching(eggEvent.isHatching())
+                            .setNumHatches(eggEvent.getNumHatches())
+                            .setHatchingType(hatchingType)
+                            .build()
+                    ).build()
+                );
+                break;
             case "org.bukkit.event.player.PlayerInteractEvent":
                 var interactEvent = (org.bukkit.event.player.PlayerInteractEvent) event;
                 var clicked = interactEvent.getClickedBlock();

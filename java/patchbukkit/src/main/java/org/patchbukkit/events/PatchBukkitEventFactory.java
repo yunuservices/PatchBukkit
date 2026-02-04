@@ -32,6 +32,7 @@ import org.bukkit.event.player.PlayerRegisterChannelEvent;
 import org.bukkit.event.player.PlayerUnregisterChannelEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerEditBookEvent;
+import org.bukkit.event.player.PlayerEggThrowEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.BroadcastMessageEvent;
@@ -50,6 +51,7 @@ import org.patchbukkit.entity.PatchBukkitEntity;
 import org.patchbukkit.entity.PatchBukkitLivingEntity;
 import org.patchbukkit.entity.PatchBukkitArmorStand;
 import org.patchbukkit.entity.PatchBukkitItem;
+import org.patchbukkit.entity.PatchBukkitEgg;
 import org.bukkit.block.BlockFace;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.EquipmentSlot;
@@ -451,6 +453,33 @@ public class PatchBukkitEventFactory {
                     }
                 }
                 yield new PlayerEditBookEvent(player, editEvent.getSlot(), previousMeta, newMeta, isSigning);
+            }
+            case PLAYER_EGG_THROW -> {
+                patchbukkit.events.PlayerEggThrowEvent eggEvent = event.getPlayerEggThrow();
+                Player player = getPlayer(eggEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+                java.util.UUID eggUuid;
+                try {
+                    eggUuid = java.util.UUID.fromString(eggEvent.getEggUuid().getValue());
+                } catch (IllegalArgumentException e) {
+                    yield null;
+                }
+                PatchBukkitEgg egg = new PatchBukkitEgg(eggUuid, new ItemStack(Material.EGG));
+                org.bukkit.entity.EntityType hatchingType = org.bukkit.entity.EntityType.CHICKEN;
+                if (!eggEvent.getHatchingType().isEmpty()) {
+                    try {
+                        hatchingType = org.bukkit.entity.EntityType.valueOf(eggEvent.getHatchingType());
+                    } catch (IllegalArgumentException ignored) {
+                        hatchingType = org.bukkit.entity.EntityType.CHICKEN;
+                    }
+                }
+                yield new PlayerEggThrowEvent(
+                    player,
+                    egg,
+                    eggEvent.getHatching(),
+                    (byte) Math.max(0, Math.min(eggEvent.getNumHatches(), 127)),
+                    hatchingType
+                );
             }
             case PLAYER_INTERACT -> {
                 patchbukkit.events.PlayerInteractEvent interactEvent = event.getPlayerInteract();
@@ -923,6 +952,25 @@ public class PatchBukkitEventFactory {
                     .addAllPages(pages)
                     .setTitle(title)
                     .setIsSigning(editEvent.isSigning())
+                    .build()
+            );
+        } else if (event instanceof PlayerEggThrowEvent eggEvent) {
+            var hatchingType = eggEvent.getHatchingType() != null
+                ? eggEvent.getHatchingType().name()
+                : "CHICKEN";
+            var egg = eggEvent.getEgg();
+            var eggUuid = egg != null ? egg.getUniqueId().toString() : java.util.UUID.randomUUID().toString();
+            eventBuilder.setPlayerEggThrow(
+                patchbukkit.events.PlayerEggThrowEvent.newBuilder()
+                    .setPlayerUuid(UUID.newBuilder()
+                        .setValue(eggEvent.getPlayer().getUniqueId().toString())
+                        .build())
+                    .setEggUuid(UUID.newBuilder()
+                        .setValue(eggUuid)
+                        .build())
+                    .setHatching(eggEvent.isHatching())
+                    .setNumHatches(eggEvent.getNumHatches())
+                    .setHatchingType(hatchingType)
                     .build()
             );
         } else if (event instanceof PlayerInteractEvent interactEvent) {
