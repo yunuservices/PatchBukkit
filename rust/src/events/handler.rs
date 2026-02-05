@@ -20,7 +20,7 @@ use crate::java::jvm::commands::JvmCommand;
 use crate::proto::patchbukkit::common::{Location, Uuid, Vec3, World};
 use crate::proto::patchbukkit::events::event::Data;
 use crate::proto::patchbukkit::events::{
-    BlockBreakEvent, BlockDamageEvent, BlockDamageAbortEvent, BlockDispenseEvent, BlockDropItemEntry, BlockDropItemEvent, BlockExplodeBlockEntry, BlockExplodeEvent, BlockFadeEvent, BlockFertilizeBlockEntry, BlockFertilizeEvent, BlockFormEvent, BlockFromToEvent, BlockGrowEvent, BlockPistonBlockEntry, BlockPistonExtendEvent, BlockPistonRetractEvent, BlockRedstoneEvent, BlockMultiPlaceBlockEntry, BlockMultiPlaceEvent, BlockPhysicsEvent, BlockPlaceEvent, BlockCanBuildEvent, BlockBurnEvent, BlockIgniteEvent, BlockSpreadEvent, NotePlayEvent, SignChangeEvent, TntPrimeEvent, MoistureChangeEvent, SpongeAbsorbEvent, SpongeAbsorbBlockEntry, FluidLevelChangeEvent, Event, PlayerChatEvent, PlayerCommandEvent, PlayerCommandSendEvent, PlayerJoinEvent,
+    BlockBreakEvent, BlockDamageEvent, BlockDamageAbortEvent, BlockDispenseEvent, BlockDropItemEntry, BlockDropItemEvent, BlockExplodeBlockEntry, BlockExplodeEvent, BlockFadeEvent, BlockFertilizeBlockEntry, BlockFertilizeEvent, BlockFormEvent, BlockFromToEvent, BlockGrowEvent, BlockPistonBlockEntry, BlockPistonExtendEvent, BlockPistonRetractEvent, BlockRedstoneEvent, BlockMultiPlaceBlockEntry, BlockMultiPlaceEvent, BlockPhysicsEvent, BlockPlaceEvent, BlockCanBuildEvent, BlockBurnEvent, BlockIgniteEvent, BlockSpreadEvent, NotePlayEvent, SignChangeEvent, TntPrimeEvent, MoistureChangeEvent, SpongeAbsorbEvent, SpongeAbsorbBlockEntry, FluidLevelChangeEvent, SpawnChangeEvent, Event, PlayerChatEvent, PlayerCommandEvent, PlayerCommandSendEvent, PlayerJoinEvent,
     PlayerLeaveEvent, PlayerMoveEvent, PlayerInteractEvent, ServerBroadcastEvent, ServerCommandEvent,
     EntityDamageEvent, EntityDeathEvent, EntitySpawnEvent,
     PlayerLoginEvent, PlayerTeleportEvent, PlayerChangeWorldEvent, PlayerGamemodeChangeEvent,
@@ -3593,6 +3593,58 @@ impl PatchBukkitEvent for pumpkin::plugin::block::fluid_level_change::FluidLevel
                     if let Some(block) = Block::from_name(&event.new_block_key) {
                         self.new_state_id = block.default_state.id;
                     }
+                }
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::world::spawn_change::SpawnChangeEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        let world_uuid = self.world.uuid;
+        let previous_location = build_location(
+            world_uuid,
+            &Vector3::new(
+                f64::from(self.previous_position.0.x),
+                f64::from(self.previous_position.0.y),
+                f64::from(self.previous_position.0.z),
+            ),
+            0.0,
+            0.0,
+        );
+        let location = build_location(
+            world_uuid,
+            &Vector3::new(
+                f64::from(self.new_position.0.x),
+                f64::from(self.new_position.0.y),
+                f64::from(self.new_position.0.z),
+            ),
+            0.0,
+            0.0,
+        );
+
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::SpawnChange(SpawnChangeEvent {
+                    previous_location: Some(previous_location),
+                    location: Some(location),
+                })),
+            },
+            context: EventContext { server, player: None },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::SpawnChange(event) => {
+                if let Some(loc) = event.location.and_then(location_to_vec3) {
+                    self.new_position = pumpkin_util::math::position::BlockPos::new(
+                        loc.x.floor() as i32,
+                        loc.y.floor() as i32,
+                        loc.z.floor() as i32,
+                    );
                 }
             }
             _ => {}

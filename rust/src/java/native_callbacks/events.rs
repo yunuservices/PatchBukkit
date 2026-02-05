@@ -1335,6 +1335,21 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
                         )
                         .await;
                 }
+                "org.bukkit.event.world.SpawnChangeEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::world::spawn_change::SpawnChangeEvent,
+                            PatchBukkitEventHandler<pumpkin::plugin::world::spawn_change::SpawnChangeEvent>,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
                 "org.bukkit.event.block.BlockCanBuildEvent" => {
                     context
                         .register_event::<

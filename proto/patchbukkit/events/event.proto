@@ -7,6 +7,7 @@ import "patchbukkit/events/player_events.proto";
 import "patchbukkit/events/server_events.proto";
 import "patchbukkit/events/block_events.proto";
 import "patchbukkit/events/entity_events.proto";
+import "patchbukkit/events/world_events.proto";
 
 option java_multiple_files = true;
 option java_package = "patchbukkit.events";
@@ -97,6 +98,7 @@ message Event {
     MoistureChangeEvent moisture_change = 82;
     SpongeAbsorbEvent sponge_absorb = 83;
     FluidLevelChangeEvent fluid_level_change = 84;
+    SpawnChangeEvent spawn_change = 85;
   }
 }
 

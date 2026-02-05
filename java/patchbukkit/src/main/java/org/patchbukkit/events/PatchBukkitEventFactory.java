@@ -37,6 +37,7 @@ import org.bukkit.event.block.SpongeAbsorbEvent;
 import org.bukkit.event.block.FluidLevelChangeEvent;
 import org.bukkit.Instrument;
 import org.bukkit.Note;
+import org.bukkit.event.world.SpawnChangeEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
@@ -1666,6 +1667,23 @@ public class PatchBukkitEventFactory {
                 );
                 yield new FluidLevelChangeEvent(block, newBlock.getState());
             }
+            case SPAWN_CHANGE -> {
+                patchbukkit.events.SpawnChangeEvent spawnEvent = event.getSpawnChange();
+                Location location = BridgeUtils.convertLocation(spawnEvent.getLocation());
+                if (location == null || !(location.getWorld() instanceof PatchBukkitWorld world)) {
+                    yield null;
+                }
+                Location previous = BridgeUtils.convertLocation(spawnEvent.getPreviousLocation());
+                if (previous == null) {
+                    previous = location;
+                }
+                org.bukkit.event.Event constructed =
+                    createSpawnChangeEvent(world, location, previous);
+                if (constructed instanceof SpawnChangeEvent spawnChange) {
+                    yield spawnChange;
+                }
+                yield null;
+            }
             case BLOCK_CAN_BUILD -> {
                 patchbukkit.events.BlockCanBuildEvent canBuildEvent = event.getBlockCanBuild();
                 Player player = getPlayer(canBuildEvent.getPlayerUuid().getValue());
@@ -2934,6 +2952,18 @@ public class PatchBukkitEventFactory {
                     .setNewBlockKey(newState.getType().getKey().toString())
                     .build()
             );
+        } else if (event instanceof SpawnChangeEvent spawnEvent) {
+            Location location = spawnEvent.getLocation();
+            Location previous = spawnEvent.getPreviousLocation();
+            if (previous == null) {
+                previous = location;
+            }
+            eventBuilder.setSpawnChange(
+                patchbukkit.events.SpawnChangeEvent.newBuilder()
+                    .setPreviousLocation(BridgeUtils.convertLocation(previous))
+                    .setLocation(BridgeUtils.convertLocation(location))
+                    .build()
+            );
         } else if (event instanceof BlockCanBuildEvent canBuildEvent) {
             Block block = canBuildEvent.getBlock();
             boolean canBuild = canBuildEvent.isBuildable();
@@ -3331,6 +3361,29 @@ public class PatchBukkitEventFactory {
             java.lang.reflect.Constructor<TNTPrimeEvent> ctor =
                 TNTPrimeEvent.class.getConstructor(Block.class, TNTPrimeEvent.PrimeCause.class, Entity.class, Block.class);
             return ctor.newInstance(block, cause, primer, block);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static org.bukkit.event.Event createSpawnChangeEvent(
+        @NotNull org.bukkit.World world,
+        @NotNull Location location,
+        @NotNull Location previous
+    ) {
+        try {
+            java.lang.reflect.Constructor<SpawnChangeEvent> ctor =
+                SpawnChangeEvent.class.getConstructor(org.bukkit.World.class, Location.class, Location.class);
+            return ctor.newInstance(world, location, previous);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<SpawnChangeEvent> ctor =
+                SpawnChangeEvent.class.getConstructor(org.bukkit.World.class, Location.class);
+            return ctor.newInstance(world, location);
         } catch (ReflectiveOperationException ignored) {
             // ignore
         }

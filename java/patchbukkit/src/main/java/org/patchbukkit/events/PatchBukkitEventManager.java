@@ -15,6 +15,7 @@ import org.bukkit.plugin.RegisteredListener;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 import org.bukkit.block.Block;
+import org.bukkit.Location;
 import org.patchbukkit.bridge.BridgeUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
@@ -62,6 +63,7 @@ import patchbukkit.events.MoistureChangeEvent;
 import patchbukkit.events.SpongeAbsorbEvent;
 import patchbukkit.events.SpongeAbsorbBlockEntry;
 import patchbukkit.events.FluidLevelChangeEvent;
+import patchbukkit.events.SpawnChangeEvent;
 import patchbukkit.events.PlayerInteractEvent;
 import patchbukkit.events.EntitySpawnEvent;
 import patchbukkit.events.EntityDamageEvent;
@@ -1378,6 +1380,22 @@ public class PatchBukkitEventManager {
                             .setBlockKey(fluidBlock.getType().getKey().toString())
                             .setLocation(BridgeUtils.convertLocation(fluidBlock.getLocation()))
                             .setNewBlockKey(fluidEvent.getNewState().getType().getKey().toString())
+                            .build()
+                    ).build()
+                );
+                break;
+            case "org.bukkit.event.world.SpawnChangeEvent":
+                var spawnEvent = (org.bukkit.event.world.SpawnChangeEvent) event;
+                Location location = spawnEvent.getLocation();
+                Location previous = spawnEvent.getPreviousLocation();
+                if (previous == null) {
+                    previous = location;
+                }
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setSpawnChange(
+                        SpawnChangeEvent.newBuilder()
+                            .setPreviousLocation(BridgeUtils.convertLocation(previous))
+                            .setLocation(BridgeUtils.convertLocation(location))
                             .build()
                     ).build()
                 );
