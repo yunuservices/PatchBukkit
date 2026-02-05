@@ -5,6 +5,7 @@ use pumpkin::plugin::block::block_break::BlockBreakEvent;
 use pumpkin::plugin::block::block_place::BlockPlaceEvent;
 use pumpkin::plugin::block::block_can_build::BlockCanBuildEvent;
 use pumpkin::plugin::block::block_burn::BlockBurnEvent;
+use pumpkin::plugin::block::block_ignite::BlockIgniteEvent;
 use pumpkin::plugin::player::player_chat::PlayerChatEvent;
 use pumpkin::plugin::player::player_command_preprocess::PlayerCommandPreprocessEvent;
 use pumpkin::plugin::player::player_command_send::PlayerCommandSendEvent;
@@ -1005,6 +1006,21 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
                         .register_event::<
                             pumpkin::plugin::block::block_burn::BlockBurnEvent,
                             PatchBukkitEventHandler<pumpkin::plugin::block::block_burn::BlockBurnEvent>,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.block.BlockIgniteEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::block::block_ignite::BlockIgniteEvent,
+                            PatchBukkitEventHandler<pumpkin::plugin::block::block_ignite::BlockIgniteEvent>,
                         >(
                             Arc::new(PatchBukkitEventHandler::new(
                                 request.plugin_name.clone(),
@@ -2196,6 +2212,46 @@ pub fn ffi_native_bridge_call_event_impl(request: CallEventRequest) -> Option<Ca
                         block,
                         block_pos,
                         world_uuid,
+                        cancelled: false,
+                    };
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
+                Data::BlockIgnite(block_ignite_event_data) => {
+                    let uuid =
+                        uuid::Uuid::parse_str(&block_ignite_event_data.player_uuid?.value).ok()?;
+                    let player = context.server.get_player_by_uuid(uuid)?;
+                    let block = block_from_key(&block_ignite_event_data.block_key);
+                    let igniting_block =
+                        block_from_key(&block_ignite_event_data.igniting_block_key);
+                    let (world_uuid, pos) = if let Some(loc) = block_ignite_event_data.location {
+                        let world_uuid = loc
+                            .world
+                            .and_then(|w| w.uuid)
+                            .and_then(|uuid| uuid::Uuid::parse_str(&uuid.value).ok())
+                            .unwrap_or_else(|| player.world().uuid);
+                        let pos = location_to_vec3(loc).unwrap_or_else(Vector3::default);
+                        (world_uuid, pos)
+                    } else {
+                        (player.world().uuid, Vector3::default())
+                    };
+                    let block_pos = pumpkin_util::math::position::BlockPos::new(
+                        pos.x.floor() as i32,
+                        pos.y.floor() as i32,
+                        pos.z.floor() as i32,
+                    );
+                    let cause = if block_ignite_event_data.cause.is_empty() {
+                        "UNKNOWN".to_string()
+                    } else {
+                        block_ignite_event_data.cause
+                    };
+                    let pumpkin_event = BlockIgniteEvent {
+                        player,
+                        block,
+                        igniting_block,
+                        block_pos,
+                        world_uuid,
+                        cause,
                         cancelled: false,
                     };
                     context.server.plugin_manager.fire(pumpkin_event).await;

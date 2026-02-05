@@ -1031,6 +1031,26 @@ public class PatchBukkitEventManager {
                     ).build()
                 );
                 break;
+            case "org.bukkit.event.block.BlockIgniteEvent":
+                var igniteEvent = (org.bukkit.event.block.BlockIgniteEvent) event;
+                Block igniteBlock = igniteEvent.getBlock();
+                String igniteCause = igniteEvent.getCause() != null ? igniteEvent.getCause().name() : "";
+                Block igniteSource = PatchBukkitEventFactory.resolveIgnitingBlock(igniteEvent);
+                String igniteKey = igniteSource != null
+                    ? igniteSource.getType().getKey().toString()
+                    : "minecraft:fire";
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setBlockIgnite(
+                        patchbukkit.events.BlockIgniteEvent.newBuilder()
+                            .setPlayerUuid(BridgeUtils.convertUuid(igniteEvent.getPlayer().getUniqueId()))
+                            .setBlockKey(igniteBlock.getType().getKey().toString())
+                            .setIgnitingBlockKey(igniteKey)
+                            .setLocation(BridgeUtils.convertLocation(igniteBlock.getLocation()))
+                            .setCause(igniteCause)
+                            .build()
+                    ).build()
+                );
+                break;
             case "org.bukkit.event.block.BlockPlaceEvent":
                 var placeEvent = (org.bukkit.event.block.BlockPlaceEvent) event;
                 request.setEvent(

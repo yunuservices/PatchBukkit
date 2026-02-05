@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockCanBuildEvent;
 import org.bukkit.event.block.BlockBurnEvent;
+import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -1058,6 +1059,32 @@ public class PatchBukkitEventFactory {
                 setIgnitingBlock(eventObj, burnEvent.getIgnitingBlockKey());
                 yield eventObj;
             }
+            case BLOCK_IGNITE -> {
+                patchbukkit.events.BlockIgniteEvent igniteEvent = event.getBlockIgnite();
+                Player player = getPlayer(igniteEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+                Location location = BridgeUtils.convertLocation(igniteEvent.getLocation());
+                if (location == null || !(location.getWorld() instanceof PatchBukkitWorld world)) {
+                    yield null;
+                }
+                Block block = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    igniteEvent.getBlockKey()
+                );
+                BlockIgniteEvent.IgniteCause cause = BlockIgniteEvent.IgniteCause.FLINT_AND_STEEL;
+                if (!igniteEvent.getCause().isEmpty()) {
+                    try {
+                        cause = BlockIgniteEvent.IgniteCause.valueOf(igniteEvent.getCause());
+                    } catch (IllegalArgumentException ignored) {
+                        cause = BlockIgniteEvent.IgniteCause.FLINT_AND_STEEL;
+                    }
+                }
+                BlockIgniteEvent eventObj = new BlockIgniteEvent(block, cause, player);
+                yield eventObj;
+            }
             case BLOCK_PLACE -> {
                 patchbukkit.events.BlockPlaceEvent placeEvent = event.getBlockPlace();
                 Player player = getPlayer(placeEvent.getPlayerUuid().getValue());
@@ -1970,6 +1997,24 @@ public class PatchBukkitEventFactory {
                     .setBlockKey(block.getType().getKey().toString())
                     .setIgnitingBlockKey(ignitingKey)
                     .setLocation(BridgeUtils.convertLocation(block.getLocation()))
+                    .build()
+            );
+        } else if (event instanceof BlockIgniteEvent igniteEvent) {
+            Block block = igniteEvent.getBlock();
+            String cause = igniteEvent.getCause() != null ? igniteEvent.getCause().name() : "";
+            Block ignitingBlock = resolveIgnitingBlock(igniteEvent);
+            String ignitingKey = ignitingBlock != null
+                ? ignitingBlock.getType().getKey().toString()
+                : "minecraft:fire";
+            eventBuilder.setBlockIgnite(
+                patchbukkit.events.BlockIgniteEvent.newBuilder()
+                    .setPlayerUuid(UUID.newBuilder()
+                        .setValue(igniteEvent.getPlayer().getUniqueId().toString())
+                        .build())
+                    .setBlockKey(block.getType().getKey().toString())
+                    .setIgnitingBlockKey(ignitingKey)
+                    .setLocation(BridgeUtils.convertLocation(block.getLocation()))
+                    .setCause(cause)
                     .build()
             );
         } else if (event instanceof BlockPlaceEvent placeEvent) {

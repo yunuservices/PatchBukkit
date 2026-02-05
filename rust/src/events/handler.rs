@@ -19,7 +19,7 @@ use crate::java::jvm::commands::JvmCommand;
 use crate::proto::patchbukkit::common::{Location, Uuid, Vec3, World};
 use crate::proto::patchbukkit::events::event::Data;
 use crate::proto::patchbukkit::events::{
-    BlockBreakEvent, BlockPlaceEvent, BlockCanBuildEvent, BlockBurnEvent, Event, PlayerChatEvent, PlayerCommandEvent, PlayerCommandSendEvent, PlayerJoinEvent,
+    BlockBreakEvent, BlockPlaceEvent, BlockCanBuildEvent, BlockBurnEvent, BlockIgniteEvent, Event, PlayerChatEvent, PlayerCommandEvent, PlayerCommandSendEvent, PlayerJoinEvent,
     PlayerLeaveEvent, PlayerMoveEvent, PlayerInteractEvent, ServerBroadcastEvent, ServerCommandEvent,
     EntityDamageEvent, EntityDeathEvent, EntitySpawnEvent,
     PlayerLoginEvent, PlayerTeleportEvent, PlayerChangeWorldEvent, PlayerGamemodeChangeEvent,
@@ -2462,6 +2462,75 @@ impl PatchBukkitEvent for pumpkin::plugin::block::block_burn::BlockBurnEvent {
     }
 
     fn apply_modifications(&mut self, _server: &Arc<Server>, _data: Data) -> Option<()> {
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::block::block_ignite::BlockIgniteEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        let location = build_location(
+            self.world_uuid,
+            &Vector3::new(
+                f64::from(self.block_pos.0.x),
+                f64::from(self.block_pos.0.y),
+                f64::from(self.block_pos.0.z),
+            ),
+            0.0,
+            0.0,
+        );
+
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::BlockIgnite(BlockIgniteEvent {
+                    player_uuid: Some(Uuid {
+                        value: self.player.gameprofile.id.to_string(),
+                    }),
+                    block_key: block_to_key(self.block),
+                    igniting_block_key: block_to_key(self.igniting_block),
+                    location: Some(location),
+                    cause: self.cause.clone(),
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::BlockIgnite(event) => {
+                if !event.block_key.is_empty() {
+                    if let Some(block) = Block::from_name(&event.block_key) {
+                        self.block = block;
+                    }
+                }
+                if !event.igniting_block_key.is_empty() {
+                    if let Some(block) = Block::from_name(&event.igniting_block_key) {
+                        self.igniting_block = block;
+                    }
+                }
+                if let Some(loc) = event.location {
+                    if let Some(pos) = location_to_vec3(loc.clone()) {
+                        self.block_pos = pumpkin_util::math::position::BlockPos::new(
+                            pos.x.floor() as i32,
+                            pos.y.floor() as i32,
+                            pos.z.floor() as i32,
+                        );
+                    }
+                    if let Some(world) = loc.world.and_then(|w| w.uuid) {
+                        if let Ok(uuid) = uuid::Uuid::from_str(&world.value) {
+                            self.world_uuid = uuid;
+                        }
+                    }
+                }
+                if !event.cause.is_empty() {
+                    self.cause = event.cause;
+                }
+            }
+            _ => {}
+        }
         Some(())
     }
 }

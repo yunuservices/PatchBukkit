@@ -36,6 +36,14 @@ message BlockBurnEvent {
   patchbukkit.common.Location location = 3;
 }
 
+message BlockIgniteEvent {
+  patchbukkit.common.UUID player_uuid = 1;
+  string block_key = 2;
+  string igniting_block_key = 3;
+  patchbukkit.common.Location location = 4;
+  string cause = 5;
+}
+
 message PlayerInteractEvent {
   patchbukkit.common.UUID player_uuid = 1;
   string action = 2;
