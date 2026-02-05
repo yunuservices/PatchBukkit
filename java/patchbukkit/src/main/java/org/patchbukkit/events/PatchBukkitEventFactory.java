@@ -13,6 +13,7 @@ import org.bukkit.event.block.BlockDamageEvent;
 import org.bukkit.event.block.BlockDispenseEvent;
 import org.bukkit.event.block.BlockDropItemEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
+import org.bukkit.event.block.BlockFadeEvent;
 import org.bukkit.event.block.BlockCanBuildEvent;
 import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
@@ -1195,6 +1196,33 @@ public class PatchBukkitEventFactory {
 
                 yield new BlockExplodeEvent(block, blockList, explodeEvent.getYield());
             }
+            case BLOCK_FADE -> {
+                patchbukkit.events.BlockFadeEvent fadeEvent = event.getBlockFade();
+                Location location = BridgeUtils.convertLocation(fadeEvent.getLocation());
+                if (location == null || !(location.getWorld() instanceof PatchBukkitWorld world)) {
+                    yield null;
+                }
+
+                org.bukkit.block.Block block = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    fadeEvent.getBlockKey()
+                );
+                String newKey = fadeEvent.getNewBlockKey().isEmpty()
+                    ? "minecraft:air"
+                    : fadeEvent.getNewBlockKey();
+                org.bukkit.block.Block newBlock = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    newKey
+                );
+                org.bukkit.block.BlockState newState = newBlock.getState();
+                yield new BlockFadeEvent(block, newState);
+            }
             case BLOCK_CAN_BUILD -> {
                 patchbukkit.events.BlockCanBuildEvent canBuildEvent = event.getBlockCanBuild();
                 Player player = getPlayer(canBuildEvent.getPlayerUuid().getValue());
@@ -2253,6 +2281,16 @@ public class PatchBukkitEventFactory {
                 );
             }
             eventBuilder.setBlockExplode(builder.build());
+        } else if (event instanceof BlockFadeEvent fadeEvent) {
+            var block = fadeEvent.getBlock();
+            var newState = fadeEvent.getNewState();
+            eventBuilder.setBlockFade(
+                patchbukkit.events.BlockFadeEvent.newBuilder()
+                    .setBlockKey(block.getType().getKey().toString())
+                    .setNewBlockKey(newState.getType().getKey().toString())
+                    .setLocation(BridgeUtils.convertLocation(block.getLocation()))
+                    .build()
+            );
         } else if (event instanceof BlockCanBuildEvent canBuildEvent) {
             Block block = canBuildEvent.getBlock();
             boolean canBuild = canBuildEvent.isBuildable();

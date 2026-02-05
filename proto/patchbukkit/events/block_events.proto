@@ -61,6 +61,12 @@ message BlockExplodeEvent {
   repeated BlockExplodeBlockEntry blocks = 4;
 }
 
+message BlockFadeEvent {
+  string block_key = 1;
+  string new_block_key = 2;
+  patchbukkit.common.Location location = 3;
+}
+
 message BlockPlaceEvent {
   patchbukkit.common.UUID player_uuid = 1;
   string block_key = 2;

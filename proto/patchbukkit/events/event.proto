@@ -81,6 +81,7 @@ message Event {
     BlockDispenseEvent block_dispense = 66;
     BlockDropItemEvent block_drop_item = 67;
     BlockExplodeEvent block_explode = 68;
+    BlockFadeEvent block_fade = 69;
   }
 }
 
