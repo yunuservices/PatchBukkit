@@ -91,6 +91,13 @@ pub fn setup_java(base: PathBuf) {
         // These are deps of patchbukkit itself
         ("io.papermc.paper", "paper-api", "1.21.11-R0.1-SNAPSHOT"),
         ("com.google.protobuf", "protobuf-java", "4.33.5"),
+        // Netty for ViaVersion / ViaBackwards
+        ("io.netty", "netty-common", "4.1.108.Final"),
+        ("io.netty", "netty-buffer", "4.1.108.Final"),
+        ("io.netty", "netty-transport", "4.1.108.Final"),
+        ("io.netty", "netty-codec", "4.1.108.Final"),
+        ("io.netty", "netty-handler", "4.1.108.Final"),
+        ("io.netty", "netty-resolver", "4.1.108.Final"),
     ];
 
     let jvm = JvmBuilder::new()
