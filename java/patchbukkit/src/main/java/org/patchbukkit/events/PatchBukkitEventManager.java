@@ -64,6 +64,7 @@ import patchbukkit.events.SpongeAbsorbEvent;
 import patchbukkit.events.SpongeAbsorbBlockEntry;
 import patchbukkit.events.FluidLevelChangeEvent;
 import patchbukkit.events.SpawnChangeEvent;
+import patchbukkit.events.ServerListPingEvent;
 import patchbukkit.events.PlayerInteractEvent;
 import patchbukkit.events.EntitySpawnEvent;
 import patchbukkit.events.EntityDamageEvent;
@@ -1396,6 +1397,43 @@ public class PatchBukkitEventManager {
                         SpawnChangeEvent.newBuilder()
                             .setPreviousLocation(BridgeUtils.convertLocation(previous))
                             .setLocation(BridgeUtils.convertLocation(location))
+                            .build()
+                    ).build()
+                );
+                break;
+            case "org.bukkit.event.server.ServerListPingEvent":
+                var pingEvent = (org.bukkit.event.server.ServerListPingEvent) event;
+                int onlinePlayers = 0;
+                try {
+                    Method method = pingEvent.getClass().getMethod("getNumPlayers");
+                    Object value = method.invoke(pingEvent);
+                    if (value instanceof Integer count) {
+                        onlinePlayers = count;
+                    }
+                } catch (ReflectiveOperationException ignored) {
+                    onlinePlayers = pingEvent.getServer().getOnlinePlayers().size();
+                }
+                String favicon = "";
+                try {
+                    Method method = pingEvent.getClass().getMethod("getServerIcon");
+                    Object icon = method.invoke(pingEvent);
+                    if (icon != null) {
+                        Method dataMethod = icon.getClass().getMethod("getData");
+                        Object data = dataMethod.invoke(icon);
+                        if (data instanceof String dataString) {
+                            favicon = dataString;
+                        }
+                    }
+                } catch (ReflectiveOperationException ignored) {
+                    // ignore
+                }
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setServerListPing(
+                        ServerListPingEvent.newBuilder()
+                            .setMotd(pingEvent.getMotd())
+                            .setMaxPlayers(pingEvent.getMaxPlayers())
+                            .setOnlinePlayers(onlinePlayers)
+                            .setFavicon(favicon)
                             .build()
                     ).build()
                 );

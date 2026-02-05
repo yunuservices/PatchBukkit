@@ -20,7 +20,7 @@ use crate::java::jvm::commands::JvmCommand;
 use crate::proto::patchbukkit::common::{Location, Uuid, Vec3, World};
 use crate::proto::patchbukkit::events::event::Data;
 use crate::proto::patchbukkit::events::{
-    BlockBreakEvent, BlockDamageEvent, BlockDamageAbortEvent, BlockDispenseEvent, BlockDropItemEntry, BlockDropItemEvent, BlockExplodeBlockEntry, BlockExplodeEvent, BlockFadeEvent, BlockFertilizeBlockEntry, BlockFertilizeEvent, BlockFormEvent, BlockFromToEvent, BlockGrowEvent, BlockPistonBlockEntry, BlockPistonExtendEvent, BlockPistonRetractEvent, BlockRedstoneEvent, BlockMultiPlaceBlockEntry, BlockMultiPlaceEvent, BlockPhysicsEvent, BlockPlaceEvent, BlockCanBuildEvent, BlockBurnEvent, BlockIgniteEvent, BlockSpreadEvent, NotePlayEvent, SignChangeEvent, TntPrimeEvent, MoistureChangeEvent, SpongeAbsorbEvent, SpongeAbsorbBlockEntry, FluidLevelChangeEvent, SpawnChangeEvent, Event, PlayerChatEvent, PlayerCommandEvent, PlayerCommandSendEvent, PlayerJoinEvent,
+    BlockBreakEvent, BlockDamageEvent, BlockDamageAbortEvent, BlockDispenseEvent, BlockDropItemEntry, BlockDropItemEvent, BlockExplodeBlockEntry, BlockExplodeEvent, BlockFadeEvent, BlockFertilizeBlockEntry, BlockFertilizeEvent, BlockFormEvent, BlockFromToEvent, BlockGrowEvent, BlockPistonBlockEntry, BlockPistonExtendEvent, BlockPistonRetractEvent, BlockRedstoneEvent, BlockMultiPlaceBlockEntry, BlockMultiPlaceEvent, BlockPhysicsEvent, BlockPlaceEvent, BlockCanBuildEvent, BlockBurnEvent, BlockIgniteEvent, BlockSpreadEvent, NotePlayEvent, SignChangeEvent, TntPrimeEvent, MoistureChangeEvent, SpongeAbsorbEvent, SpongeAbsorbBlockEntry, FluidLevelChangeEvent, SpawnChangeEvent, ServerListPingEvent, Event, PlayerChatEvent, PlayerCommandEvent, PlayerCommandSendEvent, PlayerJoinEvent,
     PlayerLeaveEvent, PlayerMoveEvent, PlayerInteractEvent, ServerBroadcastEvent, ServerCommandEvent,
     EntityDamageEvent, EntityDeathEvent, EntitySpawnEvent,
     PlayerLoginEvent, PlayerTeleportEvent, PlayerChangeWorldEvent, PlayerGamemodeChangeEvent,
@@ -3645,6 +3645,43 @@ impl PatchBukkitEvent for pumpkin::plugin::world::spawn_change::SpawnChangeEvent
                         loc.y.floor() as i32,
                         loc.z.floor() as i32,
                     );
+                }
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::server::server_list_ping::ServerListPingEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::ServerListPing(ServerListPingEvent {
+                    motd: self.motd.clone(),
+                    max_players: self.max_players as i32,
+                    online_players: self.num_players as i32,
+                    favicon: self.favicon.clone().unwrap_or_default(),
+                })),
+            },
+            context: EventContext { server, player: None },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::ServerListPing(event) => {
+                if !event.motd.is_empty() {
+                    self.motd = event.motd;
+                }
+                if event.max_players >= 0 {
+                    self.max_players = event.max_players as u32;
+                }
+                if event.online_players >= 0 {
+                    self.num_players = event.online_players as u32;
+                }
+                if !event.favicon.is_empty() {
+                    self.favicon = Some(event.favicon);
                 }
             }
             _ => {}

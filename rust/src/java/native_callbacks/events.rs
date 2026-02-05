@@ -1350,6 +1350,23 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
                         )
                         .await;
                 }
+                "org.bukkit.event.server.ServerListPingEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::server::server_list_ping::ServerListPingEvent,
+                            PatchBukkitEventHandler<
+                                pumpkin::plugin::server::server_list_ping::ServerListPingEvent,
+                            >,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
                 "org.bukkit.event.block.BlockCanBuildEvent" => {
                     context
                         .register_event::<

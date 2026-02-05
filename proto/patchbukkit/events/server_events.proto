@@ -14,3 +14,10 @@ message ServerBroadcastEvent {
   string message = 1;
   string sender = 2;
 }
+
+message ServerListPingEvent {
+  string motd = 1;
+  int32 max_players = 2;
+  int32 online_players = 3;
+  string favicon = 4;
+}

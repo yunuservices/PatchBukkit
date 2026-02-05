@@ -38,6 +38,7 @@ import org.bukkit.event.block.FluidLevelChangeEvent;
 import org.bukkit.Instrument;
 import org.bukkit.Note;
 import org.bukkit.event.world.SpawnChangeEvent;
+import org.bukkit.event.server.ServerListPingEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
@@ -1836,6 +1837,19 @@ public class PatchBukkitEventFactory {
                 String message = PlainTextComponentSerializer.plainText().serialize(messageComponent);
                 yield new BroadcastMessageEvent(message);
             }
+            case SERVER_LIST_PING -> {
+                patchbukkit.events.ServerListPingEvent pingEvent = event.getServerListPing();
+                String motd = pingEvent.getMotd();
+                int maxPlayers = pingEvent.getMaxPlayers();
+                int onlinePlayers = pingEvent.getOnlinePlayers();
+                String favicon = pingEvent.getFavicon();
+                org.bukkit.event.Event constructed =
+                    createServerListPingEvent(motd, maxPlayers, onlinePlayers, favicon);
+                if (constructed instanceof ServerListPingEvent serverListPing) {
+                    yield serverListPing;
+                }
+                yield null;
+            }
             case DATA_NOT_SET -> {
                 LOGGER.warning("EventFactory: Received Event with no data");
                 yield null;
@@ -3082,6 +3096,42 @@ public class PatchBukkitEventFactory {
                     .setSender(senderJson)
                     .build()
             );
+        } else if (event instanceof ServerListPingEvent pingEvent) {
+            String motd = pingEvent.getMotd();
+            int maxPlayers = pingEvent.getMaxPlayers();
+            int onlinePlayers = 0;
+            try {
+                java.lang.reflect.Method method = pingEvent.getClass().getMethod("getNumPlayers");
+                Object value = method.invoke(pingEvent);
+                if (value instanceof Integer count) {
+                    onlinePlayers = count;
+                }
+            } catch (ReflectiveOperationException ignored) {
+                onlinePlayers = pingEvent.getServer().getOnlinePlayers().size();
+            }
+            String favicon = "";
+            try {
+                java.lang.reflect.Method method = pingEvent.getClass().getMethod("getServerIcon");
+                Object icon = method.invoke(pingEvent);
+                if (icon != null) {
+                    java.lang.reflect.Method dataMethod = icon.getClass().getMethod("getData");
+                    Object data = dataMethod.invoke(icon);
+                    if (data instanceof String dataString) {
+                        favicon = dataString;
+                    }
+                }
+            } catch (ReflectiveOperationException ignored) {
+                // ignore
+            }
+
+            eventBuilder.setServerListPing(
+                patchbukkit.events.ServerListPingEvent.newBuilder()
+                    .setMotd(motd)
+                    .setMaxPlayers(maxPlayers)
+                    .setOnlinePlayers(onlinePlayers)
+                    .setFavicon(favicon)
+                    .build()
+            );
         }
 
         builder.setData(eventBuilder.build());
@@ -3384,6 +3434,39 @@ public class PatchBukkitEventFactory {
             java.lang.reflect.Constructor<SpawnChangeEvent> ctor =
                 SpawnChangeEvent.class.getConstructor(org.bukkit.World.class, Location.class);
             return ctor.newInstance(world, location);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static org.bukkit.event.Event createServerListPingEvent(
+        @NotNull String motd,
+        int maxPlayers,
+        int onlinePlayers,
+        @NotNull String favicon
+    ) {
+        java.net.InetAddress address = java.net.InetAddress.getLoopbackAddress();
+        try {
+            java.lang.reflect.Constructor<ServerListPingEvent> ctor =
+                ServerListPingEvent.class.getConstructor(java.net.InetAddress.class, String.class, int.class, int.class);
+            ServerListPingEvent event = ctor.newInstance(address, motd, maxPlayers, onlinePlayers);
+            return event;
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<ServerListPingEvent> ctor =
+                ServerListPingEvent.class.getConstructor(java.net.InetAddress.class, String.class, int.class);
+            ServerListPingEvent event = ctor.newInstance(address, motd, maxPlayers);
+            try {
+                java.lang.reflect.Method method = event.getClass().getMethod("setNumPlayers", int.class);
+                method.invoke(event, onlinePlayers);
+            } catch (ReflectiveOperationException ignored) {
+                // ignore
+            }
+            return event;
         } catch (ReflectiveOperationException ignored) {
             // ignore
         }

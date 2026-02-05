@@ -99,6 +99,7 @@ message Event {
     SpongeAbsorbEvent sponge_absorb = 83;
     FluidLevelChangeEvent fluid_level_change = 84;
     SpawnChangeEvent spawn_change = 85;
+    ServerListPingEvent server_list_ping = 86;
   }
 }
 
