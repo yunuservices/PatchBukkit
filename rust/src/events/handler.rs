@@ -19,7 +19,7 @@ use crate::java::jvm::commands::JvmCommand;
 use crate::proto::patchbukkit::common::{Location, Uuid, Vec3, World};
 use crate::proto::patchbukkit::events::event::Data;
 use crate::proto::patchbukkit::events::{
-    BlockBreakEvent, BlockDamageEvent, BlockDamageAbortEvent, BlockDispenseEvent, BlockDropItemEntry, BlockDropItemEvent, BlockExplodeBlockEntry, BlockExplodeEvent, BlockFadeEvent, BlockFertilizeBlockEntry, BlockFertilizeEvent, BlockFormEvent, BlockFromToEvent, BlockGrowEvent, BlockPistonBlockEntry, BlockPistonExtendEvent, BlockPistonRetractEvent, BlockPlaceEvent, BlockCanBuildEvent, BlockBurnEvent, BlockIgniteEvent, BlockSpreadEvent, Event, PlayerChatEvent, PlayerCommandEvent, PlayerCommandSendEvent, PlayerJoinEvent,
+    BlockBreakEvent, BlockDamageEvent, BlockDamageAbortEvent, BlockDispenseEvent, BlockDropItemEntry, BlockDropItemEvent, BlockExplodeBlockEntry, BlockExplodeEvent, BlockFadeEvent, BlockFertilizeBlockEntry, BlockFertilizeEvent, BlockFormEvent, BlockFromToEvent, BlockGrowEvent, BlockPistonBlockEntry, BlockPistonExtendEvent, BlockPistonRetractEvent, BlockRedstoneEvent, BlockPlaceEvent, BlockCanBuildEvent, BlockBurnEvent, BlockIgniteEvent, BlockSpreadEvent, Event, PlayerChatEvent, PlayerCommandEvent, PlayerCommandSendEvent, PlayerJoinEvent,
     PlayerLeaveEvent, PlayerMoveEvent, PlayerInteractEvent, ServerBroadcastEvent, ServerCommandEvent,
     EntityDamageEvent, EntityDeathEvent, EntitySpawnEvent,
     PlayerLoginEvent, PlayerTeleportEvent, PlayerChangeWorldEvent, PlayerGamemodeChangeEvent,
@@ -3044,6 +3044,49 @@ impl PatchBukkitEvent for pumpkin::plugin::block::block_piston_retract::BlockPis
         match data {
             Data::BlockPistonRetract(event) => {
                 self.length = event.length;
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::block::block_redstone::BlockRedstoneEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        let world_uuid = server
+            .worlds
+            .load()
+            .first()
+            .map(|world| world.uuid)
+            .unwrap_or_default();
+        let location = build_location(
+            world_uuid,
+            &Vector3::new(
+                f64::from(self.block_pos.0.x),
+                f64::from(self.block_pos.0.y),
+                f64::from(self.block_pos.0.z),
+            ),
+            0.0,
+            0.0,
+        );
+
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::BlockRedstone(BlockRedstoneEvent {
+                    block_key: block_to_key(self.block),
+                    location: Some(location),
+                    old_current: self.old_current,
+                    new_current: self.new_current,
+                })),
+            },
+            context: EventContext { server, player: None },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::BlockRedstone(event) => {
+                self.new_current = event.new_current;
             }
             _ => {}
         }

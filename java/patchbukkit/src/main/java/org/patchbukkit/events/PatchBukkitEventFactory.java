@@ -20,6 +20,7 @@ import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockGrowEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
+import org.bukkit.event.block.BlockRedstoneEvent;
 import org.bukkit.event.block.BlockCanBuildEvent;
 import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
@@ -1415,6 +1416,21 @@ public class PatchBukkitEventFactory {
                 }
                 yield new BlockPistonRetractEvent(block, blocks, retractEvent.getLength());
             }
+            case BLOCK_REDSTONE -> {
+                patchbukkit.events.BlockRedstoneEvent redstoneEvent = event.getBlockRedstone();
+                Location location = BridgeUtils.convertLocation(redstoneEvent.getLocation());
+                if (location == null || !(location.getWorld() instanceof PatchBukkitWorld world)) {
+                    yield null;
+                }
+                org.bukkit.block.Block block = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    redstoneEvent.getBlockKey()
+                );
+                yield new BlockRedstoneEvent(block, redstoneEvent.getOldCurrent(), redstoneEvent.getNewCurrent());
+            }
             case BLOCK_CAN_BUILD -> {
                 patchbukkit.events.BlockCanBuildEvent canBuildEvent = event.getBlockCanBuild();
                 Player player = getPlayer(canBuildEvent.getPlayerUuid().getValue());
@@ -2567,6 +2583,16 @@ public class PatchBukkitEventFactory {
                 );
             }
             eventBuilder.setBlockPistonRetract(builder.build());
+        } else if (event instanceof BlockRedstoneEvent redstoneEvent) {
+            var block = redstoneEvent.getBlock();
+            eventBuilder.setBlockRedstone(
+                patchbukkit.events.BlockRedstoneEvent.newBuilder()
+                    .setBlockKey(block.getType().getKey().toString())
+                    .setLocation(BridgeUtils.convertLocation(block.getLocation()))
+                    .setOldCurrent(redstoneEvent.getOldCurrent())
+                    .setNewCurrent(redstoneEvent.getNewCurrent())
+                    .build()
+            );
         } else if (event instanceof BlockCanBuildEvent canBuildEvent) {
             Block block = canBuildEvent.getBlock();
             boolean canBuild = canBuildEvent.isBuildable();

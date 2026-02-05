@@ -50,6 +50,7 @@ import patchbukkit.events.BlockGrowEvent;
 import patchbukkit.events.BlockPistonBlockEntry;
 import patchbukkit.events.BlockPistonExtendEvent;
 import patchbukkit.events.BlockPistonRetractEvent;
+import patchbukkit.events.BlockRedstoneEvent;
 import patchbukkit.events.BlockPlaceEvent;
 import patchbukkit.events.PlayerInteractEvent;
 import patchbukkit.events.EntitySpawnEvent;
@@ -1227,6 +1228,20 @@ public class PatchBukkitEventManager {
                 }
                 request.setEvent(
                     patchbukkit.events.Event.newBuilder().setBlockPistonRetract(retractBuilder.build()).build()
+                );
+                break;
+            case "org.bukkit.event.block.BlockRedstoneEvent":
+                var redstoneEvent = (org.bukkit.event.block.BlockRedstoneEvent) event;
+                Block redstoneBlock = redstoneEvent.getBlock();
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setBlockRedstone(
+                        BlockRedstoneEvent.newBuilder()
+                            .setBlockKey(redstoneBlock.getType().getKey().toString())
+                            .setLocation(BridgeUtils.convertLocation(redstoneBlock.getLocation()))
+                            .setOldCurrent(redstoneEvent.getOldCurrent())
+                            .setNewCurrent(redstoneEvent.getNewCurrent())
+                            .build()
+                    ).build()
                 );
                 break;
             case "org.bukkit.event.block.BlockCanBuildEvent":

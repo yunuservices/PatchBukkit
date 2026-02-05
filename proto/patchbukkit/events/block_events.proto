@@ -120,6 +120,13 @@ message BlockPistonRetractEvent {
   repeated BlockPistonBlockEntry blocks = 5;
 }
 
+message BlockRedstoneEvent {
+  string block_key = 1;
+  patchbukkit.common.Location location = 2;
+  int32 old_current = 3;
+  int32 new_current = 4;
+}
+
 message BlockPlaceEvent {
   patchbukkit.common.UUID player_uuid = 1;
   string block_key = 2;

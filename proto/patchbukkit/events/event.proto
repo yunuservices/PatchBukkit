@@ -88,6 +88,7 @@ message Event {
     BlockGrowEvent block_grow = 73;
     BlockPistonExtendEvent block_piston_extend = 74;
     BlockPistonRetractEvent block_piston_retract = 75;
+    BlockRedstoneEvent block_redstone = 76;
   }
 }
 

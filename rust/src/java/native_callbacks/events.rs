@@ -14,6 +14,7 @@ use pumpkin::plugin::block::block_from_to::BlockFromToEvent;
 use pumpkin::plugin::block::block_grow::BlockGrowEvent;
 use pumpkin::plugin::block::block_piston_extend::BlockPistonExtendEvent;
 use pumpkin::plugin::block::block_piston_retract::BlockPistonRetractEvent;
+use pumpkin::plugin::block::block_redstone::BlockRedstoneEvent;
 use pumpkin::plugin::block::block_place::BlockPlaceEvent;
 use pumpkin::plugin::block::block_can_build::BlockCanBuildEvent;
 use pumpkin::plugin::block::block_burn::BlockBurnEvent;
@@ -1177,6 +1178,21 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
                             PatchBukkitEventHandler<
                                 pumpkin::plugin::block::block_piston_retract::BlockPistonRetractEvent,
                             >,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.block.BlockRedstoneEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::block::block_redstone::BlockRedstoneEvent,
+                            PatchBukkitEventHandler<pumpkin::plugin::block::block_redstone::BlockRedstoneEvent>,
                         >(
                             Arc::new(PatchBukkitEventHandler::new(
                                 request.plugin_name.clone(),
@@ -2785,6 +2801,28 @@ pub fn ffi_native_bridge_call_event_impl(request: CallEventRequest) -> Option<Ca
                         block_piston_retract_event_data.length,
                         blocks,
                         world_uuid,
+                    );
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
+                Data::BlockRedstone(block_redstone_event_data) => {
+                    let block = block_from_key(&block_redstone_event_data.block_key);
+                    let position = block_redstone_event_data
+                        .location
+                        .and_then(|loc| loc.position)
+                        .map(|pos| {
+                            pumpkin_util::math::position::BlockPos::new(
+                                pos.x as i32,
+                                pos.y as i32,
+                                pos.z as i32,
+                            )
+                        })
+                        .unwrap_or_else(|| pumpkin_util::math::position::BlockPos::new(0, 0, 0));
+                    let pumpkin_event = BlockRedstoneEvent::new(
+                        block,
+                        position,
+                        block_redstone_event_data.old_current,
+                        block_redstone_event_data.new_current,
                     );
                     context.server.plugin_manager.fire(pumpkin_event).await;
                     Some(true)
