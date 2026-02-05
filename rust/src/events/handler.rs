@@ -8,6 +8,7 @@ use pumpkin::server::Server;
 use pumpkin_api_macros::with_runtime;
 use pumpkin_data::data_component_impl::EquipmentSlot;
 use pumpkin_data::{Block, BlockDirection};
+use pumpkin_data::block_properties::Instrument;
 use pumpkin_data::item::Item;
 use pumpkin_util::Hand;
 use pumpkin_util::math::vector3::Vector3;
@@ -19,7 +20,7 @@ use crate::java::jvm::commands::JvmCommand;
 use crate::proto::patchbukkit::common::{Location, Uuid, Vec3, World};
 use crate::proto::patchbukkit::events::event::Data;
 use crate::proto::patchbukkit::events::{
-    BlockBreakEvent, BlockDamageEvent, BlockDamageAbortEvent, BlockDispenseEvent, BlockDropItemEntry, BlockDropItemEvent, BlockExplodeBlockEntry, BlockExplodeEvent, BlockFadeEvent, BlockFertilizeBlockEntry, BlockFertilizeEvent, BlockFormEvent, BlockFromToEvent, BlockGrowEvent, BlockPistonBlockEntry, BlockPistonExtendEvent, BlockPistonRetractEvent, BlockRedstoneEvent, BlockMultiPlaceBlockEntry, BlockMultiPlaceEvent, BlockPhysicsEvent, BlockPlaceEvent, BlockCanBuildEvent, BlockBurnEvent, BlockIgniteEvent, BlockSpreadEvent, Event, PlayerChatEvent, PlayerCommandEvent, PlayerCommandSendEvent, PlayerJoinEvent,
+    BlockBreakEvent, BlockDamageEvent, BlockDamageAbortEvent, BlockDispenseEvent, BlockDropItemEntry, BlockDropItemEvent, BlockExplodeBlockEntry, BlockExplodeEvent, BlockFadeEvent, BlockFertilizeBlockEntry, BlockFertilizeEvent, BlockFormEvent, BlockFromToEvent, BlockGrowEvent, BlockPistonBlockEntry, BlockPistonExtendEvent, BlockPistonRetractEvent, BlockRedstoneEvent, BlockMultiPlaceBlockEntry, BlockMultiPlaceEvent, BlockPhysicsEvent, BlockPlaceEvent, BlockCanBuildEvent, BlockBurnEvent, BlockIgniteEvent, BlockSpreadEvent, NotePlayEvent, SignChangeEvent, TntPrimeEvent, MoistureChangeEvent, SpongeAbsorbEvent, SpongeAbsorbBlockEntry, FluidLevelChangeEvent, Event, PlayerChatEvent, PlayerCommandEvent, PlayerCommandSendEvent, PlayerJoinEvent,
     PlayerLeaveEvent, PlayerMoveEvent, PlayerInteractEvent, ServerBroadcastEvent, ServerCommandEvent,
     EntityDamageEvent, EntityDeathEvent, EntitySpawnEvent,
     PlayerLoginEvent, PlayerTeleportEvent, PlayerChangeWorldEvent, PlayerGamemodeChangeEvent,
@@ -3193,6 +3194,413 @@ impl PatchBukkitEvent for pumpkin::plugin::block::block_physics::BlockPhysicsEve
     }
 }
 
+impl PatchBukkitEvent for pumpkin::plugin::block::note_play::NotePlayEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        let location = build_location(
+            self.world_uuid,
+            &Vector3::new(
+                f64::from(self.block_pos.0.x),
+                f64::from(self.block_pos.0.y),
+                f64::from(self.block_pos.0.z),
+            ),
+            0.0,
+            0.0,
+        );
+
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::NotePlay(NotePlayEvent {
+                    block_key: block_to_key(self.block),
+                    location: Some(location),
+                    instrument: instrument_to_bukkit(self.instrument),
+                    note: i32::from(self.note),
+                })),
+            },
+            context: EventContext { server, player: None },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::NotePlay(event) => {
+                if !event.block_key.is_empty() {
+                    if let Some(block) = Block::from_name(&event.block_key) {
+                        self.block = block;
+                    }
+                }
+                if let Some(loc) = event.location {
+                    if let Some(pos) = location_to_vec3(loc.clone()) {
+                        self.block_pos = pumpkin_util::math::position::BlockPos::new(
+                            pos.x.floor() as i32,
+                            pos.y.floor() as i32,
+                            pos.z.floor() as i32,
+                        );
+                    }
+                    if let Some(world) = loc.world.and_then(|w| w.uuid) {
+                        if let Ok(uuid) = uuid::Uuid::from_str(&world.value) {
+                            self.world_uuid = uuid;
+                        }
+                    }
+                }
+                if !event.instrument.is_empty() {
+                    if let Some(instrument) = instrument_from_bukkit(&event.instrument) {
+                        self.instrument = instrument;
+                    }
+                }
+                self.note = event.note.clamp(0, 24) as u8;
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::block::sign_change::SignChangeEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        let world_uuid = self.player.world().uuid;
+        let location = build_location(
+            world_uuid,
+            &Vector3::new(
+                f64::from(self.block_pos.0.x),
+                f64::from(self.block_pos.0.y),
+                f64::from(self.block_pos.0.z),
+            ),
+            0.0,
+            0.0,
+        );
+
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::SignChange(SignChangeEvent {
+                    player_uuid: Some(Uuid {
+                        value: self.player.gameprofile.id.to_string(),
+                    }),
+                    block_key: block_to_key(self.block),
+                    location: Some(location),
+                    lines: self.lines.clone(),
+                    is_front_text: self.is_front_text,
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::SignChange(event) => {
+                if let Some(uuid) = event.player_uuid {
+                    if let Ok(uuid) = uuid::Uuid::from_str(&uuid.value) {
+                        if let Some(player) = server.get_player_by_uuid(uuid) {
+                            self.player = player;
+                        }
+                    }
+                }
+                if !event.block_key.is_empty() {
+                    if let Some(block) = Block::from_name(&event.block_key) {
+                        self.block = block;
+                    }
+                }
+                if let Some(loc) = event.location {
+                    if let Some(pos) = location_to_vec3(loc.clone()) {
+                        self.block_pos = pumpkin_util::math::position::BlockPos::new(
+                            pos.x.floor() as i32,
+                            pos.y.floor() as i32,
+                            pos.z.floor() as i32,
+                        );
+                    }
+                }
+                if !event.lines.is_empty() {
+                    self.lines = event.lines;
+                }
+                self.is_front_text = event.is_front_text;
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::block::tnt_prime::TNTPrimeEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        let location = build_location(
+            self.world_uuid,
+            &Vector3::new(
+                f64::from(self.block_pos.0.x),
+                f64::from(self.block_pos.0.y),
+                f64::from(self.block_pos.0.z),
+            ),
+            0.0,
+            0.0,
+        );
+        let player_uuid = self.player.as_ref().map(|player| Uuid {
+            value: player.gameprofile.id.to_string(),
+        });
+
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::TntPrime(TntPrimeEvent {
+                    player_uuid,
+                    block_key: block_to_key(self.block),
+                    location: Some(location),
+                    cause: self.cause.clone(),
+                })),
+            },
+            context: EventContext {
+                server,
+                player: self.player.clone(),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::TntPrime(event) => {
+                if let Some(uuid) = event.player_uuid {
+                    if let Ok(uuid) = uuid::Uuid::from_str(&uuid.value) {
+                        self.player = server.get_player_by_uuid(uuid);
+                    }
+                } else {
+                    self.player = None;
+                }
+                if !event.block_key.is_empty() {
+                    if let Some(block) = Block::from_name(&event.block_key) {
+                        self.block = block;
+                    }
+                }
+                if let Some(loc) = event.location {
+                    if let Some(pos) = location_to_vec3(loc.clone()) {
+                        self.block_pos = pumpkin_util::math::position::BlockPos::new(
+                            pos.x.floor() as i32,
+                            pos.y.floor() as i32,
+                            pos.z.floor() as i32,
+                        );
+                    }
+                    if let Some(world) = loc.world.and_then(|w| w.uuid) {
+                        if let Ok(uuid) = uuid::Uuid::from_str(&world.value) {
+                            self.world_uuid = uuid;
+                        }
+                    }
+                }
+                if !event.cause.is_empty() {
+                    self.cause = event.cause;
+                }
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::block::moisture_change::MoistureChangeEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        let location = build_location(
+            self.world_uuid,
+            &Vector3::new(
+                f64::from(self.block_pos.0.x),
+                f64::from(self.block_pos.0.y),
+                f64::from(self.block_pos.0.z),
+            ),
+            0.0,
+            0.0,
+        );
+        let new_block_key = Block::from_state_id(self.new_state_id)
+            .map(block_to_key)
+            .unwrap_or_default();
+
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::MoistureChange(MoistureChangeEvent {
+                    block_key: block_to_key(self.block),
+                    location: Some(location),
+                    new_block_key,
+                })),
+            },
+            context: EventContext { server, player: None },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::MoistureChange(event) => {
+                if !event.block_key.is_empty() {
+                    if let Some(block) = Block::from_name(&event.block_key) {
+                        self.block = block;
+                    }
+                }
+                if let Some(loc) = event.location {
+                    if let Some(pos) = location_to_vec3(loc.clone()) {
+                        self.block_pos = pumpkin_util::math::position::BlockPos::new(
+                            pos.x.floor() as i32,
+                            pos.y.floor() as i32,
+                            pos.z.floor() as i32,
+                        );
+                    }
+                    if let Some(world) = loc.world.and_then(|w| w.uuid) {
+                        if let Ok(uuid) = uuid::Uuid::from_str(&world.value) {
+                            self.world_uuid = uuid;
+                        }
+                    }
+                }
+                if !event.new_block_key.is_empty() {
+                    if let Some(block) = Block::from_name(&event.new_block_key) {
+                        self.new_state_id = block.default_state.id;
+                    }
+                }
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::block::sponge_absorb::SpongeAbsorbEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        let location = build_location(
+            self.world_uuid,
+            &Vector3::new(
+                f64::from(self.block_pos.0.x),
+                f64::from(self.block_pos.0.y),
+                f64::from(self.block_pos.0.z),
+            ),
+            0.0,
+            0.0,
+        );
+        let blocks = self
+            .blocks
+            .iter()
+            .map(|pos| {
+                let loc = build_location(
+                    self.world_uuid,
+                    &Vector3::new(f64::from(pos.0.x), f64::from(pos.0.y), f64::from(pos.0.z)),
+                    0.0,
+                    0.0,
+                );
+                SpongeAbsorbBlockEntry {
+                    block_key: block_to_key(&Block::WATER),
+                    location: Some(loc),
+                }
+            })
+            .collect();
+
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::SpongeAbsorb(SpongeAbsorbEvent {
+                    block_key: block_to_key(self.block),
+                    location: Some(location),
+                    blocks,
+                })),
+            },
+            context: EventContext { server, player: None },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::SpongeAbsorb(event) => {
+                if !event.block_key.is_empty() {
+                    if let Some(block) = Block::from_name(&event.block_key) {
+                        self.block = block;
+                    }
+                }
+                if let Some(loc) = event.location {
+                    if let Some(pos) = location_to_vec3(loc.clone()) {
+                        self.block_pos = pumpkin_util::math::position::BlockPos::new(
+                            pos.x.floor() as i32,
+                            pos.y.floor() as i32,
+                            pos.z.floor() as i32,
+                        );
+                    }
+                    if let Some(world) = loc.world.and_then(|w| w.uuid) {
+                        if let Ok(uuid) = uuid::Uuid::from_str(&world.value) {
+                            self.world_uuid = uuid;
+                        }
+                    }
+                }
+                if !event.blocks.is_empty() {
+                    let mut blocks = Vec::with_capacity(event.blocks.len());
+                    for entry in event.blocks {
+                        if let Some(loc) = entry.location.and_then(location_to_vec3) {
+                            blocks.push(pumpkin_util::math::position::BlockPos::new(
+                                loc.x.floor() as i32,
+                                loc.y.floor() as i32,
+                                loc.z.floor() as i32,
+                            ));
+                        }
+                    }
+                    self.blocks = blocks;
+                }
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::block::fluid_level_change::FluidLevelChangeEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        let location = build_location(
+            self.world_uuid,
+            &Vector3::new(
+                f64::from(self.block_pos.0.x),
+                f64::from(self.block_pos.0.y),
+                f64::from(self.block_pos.0.z),
+            ),
+            0.0,
+            0.0,
+        );
+        let new_block_key = Block::from_state_id(self.new_state_id)
+            .map(block_to_key)
+            .unwrap_or_default();
+
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::FluidLevelChange(FluidLevelChangeEvent {
+                    block_key: block_to_key(self.block),
+                    location: Some(location),
+                    new_block_key,
+                })),
+            },
+            context: EventContext { server, player: None },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::FluidLevelChange(event) => {
+                if !event.block_key.is_empty() {
+                    if let Some(block) = Block::from_name(&event.block_key) {
+                        self.block = block;
+                    }
+                }
+                if let Some(loc) = event.location {
+                    if let Some(pos) = location_to_vec3(loc.clone()) {
+                        self.block_pos = pumpkin_util::math::position::BlockPos::new(
+                            pos.x.floor() as i32,
+                            pos.y.floor() as i32,
+                            pos.z.floor() as i32,
+                        );
+                    }
+                    if let Some(world) = loc.world.and_then(|w| w.uuid) {
+                        if let Ok(uuid) = uuid::Uuid::from_str(&world.value) {
+                            self.world_uuid = uuid;
+                        }
+                    }
+                }
+                if !event.new_block_key.is_empty() {
+                    if let Some(block) = Block::from_name(&event.new_block_key) {
+                        self.new_state_id = block.default_state.id;
+                    }
+                }
+            }
+            _ => {}
+        }
+        Some(())
+    }
+}
+
 impl PatchBukkitEvent for pumpkin::plugin::block::block_place::BlockPlaceEvent {
     fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
         let player_uuid = self.player.gameprofile.id.to_string();
@@ -3737,6 +4145,63 @@ fn bukkit_main_hand(hand: Hand) -> String {
     match hand {
         Hand::Left => "LEFT".to_string(),
         Hand::Right => "RIGHT".to_string(),
+    }
+}
+
+fn instrument_to_bukkit(instrument: Instrument) -> String {
+    match instrument {
+        Instrument::Harp => "PIANO".to_string(),
+        Instrument::Basedrum => "BASS_DRUM".to_string(),
+        Instrument::Snare => "SNARE_DRUM".to_string(),
+        Instrument::Hat => "STICKS".to_string(),
+        Instrument::Bass => "BASS_GUITAR".to_string(),
+        Instrument::Flute => "FLUTE".to_string(),
+        Instrument::Bell => "BELL".to_string(),
+        Instrument::Guitar => "GUITAR".to_string(),
+        Instrument::Chime => "CHIME".to_string(),
+        Instrument::Xylophone => "XYLOPHONE".to_string(),
+        Instrument::IronXylophone => "IRON_XYLOPHONE".to_string(),
+        Instrument::CowBell => "COW_BELL".to_string(),
+        Instrument::Didgeridoo => "DIDGERIDOO".to_string(),
+        Instrument::Bit => "BIT".to_string(),
+        Instrument::Banjo => "BANJO".to_string(),
+        Instrument::Pling => "PLING".to_string(),
+        Instrument::Zombie => "ZOMBIE".to_string(),
+        Instrument::Skeleton => "SKELETON".to_string(),
+        Instrument::Creeper => "CREEPER".to_string(),
+        Instrument::Dragon => "DRAGON".to_string(),
+        Instrument::WitherSkeleton => "WITHER_SKELETON".to_string(),
+        Instrument::Piglin => "PIGLIN".to_string(),
+        Instrument::CustomHead => "CUSTOM_HEAD".to_string(),
+    }
+}
+
+fn instrument_from_bukkit(name: &str) -> Option<Instrument> {
+    match name {
+        "PIANO" => Some(Instrument::Harp),
+        "BASS_DRUM" => Some(Instrument::Basedrum),
+        "SNARE_DRUM" => Some(Instrument::Snare),
+        "STICKS" => Some(Instrument::Hat),
+        "BASS_GUITAR" => Some(Instrument::Bass),
+        "FLUTE" => Some(Instrument::Flute),
+        "BELL" => Some(Instrument::Bell),
+        "GUITAR" => Some(Instrument::Guitar),
+        "CHIME" => Some(Instrument::Chime),
+        "XYLOPHONE" => Some(Instrument::Xylophone),
+        "IRON_XYLOPHONE" => Some(Instrument::IronXylophone),
+        "COW_BELL" => Some(Instrument::CowBell),
+        "DIDGERIDOO" => Some(Instrument::Didgeridoo),
+        "BIT" => Some(Instrument::Bit),
+        "BANJO" => Some(Instrument::Banjo),
+        "PLING" => Some(Instrument::Pling),
+        "ZOMBIE" => Some(Instrument::Zombie),
+        "SKELETON" => Some(Instrument::Skeleton),
+        "CREEPER" => Some(Instrument::Creeper),
+        "DRAGON" => Some(Instrument::Dragon),
+        "WITHER_SKELETON" => Some(Instrument::WitherSkeleton),
+        "PIGLIN" => Some(Instrument::Piglin),
+        "CUSTOM_HEAD" => Some(Instrument::CustomHead),
+        _ => None,
     }
 }
 

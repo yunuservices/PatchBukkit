@@ -1239,6 +1239,102 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
                         )
                         .await;
                 }
+                "org.bukkit.event.block.NotePlayEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::block::note_play::NotePlayEvent,
+                            PatchBukkitEventHandler<pumpkin::plugin::block::note_play::NotePlayEvent>,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.block.SignChangeEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::block::sign_change::SignChangeEvent,
+                            PatchBukkitEventHandler<pumpkin::plugin::block::sign_change::SignChangeEvent>,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.block.TNTPrimeEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::block::tnt_prime::TNTPrimeEvent,
+                            PatchBukkitEventHandler<pumpkin::plugin::block::tnt_prime::TNTPrimeEvent>,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.block.MoistureChangeEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::block::moisture_change::MoistureChangeEvent,
+                            PatchBukkitEventHandler<
+                                pumpkin::plugin::block::moisture_change::MoistureChangeEvent,
+                            >,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.block.SpongeAbsorbEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::block::sponge_absorb::SpongeAbsorbEvent,
+                            PatchBukkitEventHandler<
+                                pumpkin::plugin::block::sponge_absorb::SpongeAbsorbEvent,
+                            >,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.block.FluidLevelChangeEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::block::fluid_level_change::FluidLevelChangeEvent,
+                            PatchBukkitEventHandler<
+                                pumpkin::plugin::block::fluid_level_change::FluidLevelChangeEvent,
+                            >,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
                 "org.bukkit.event.block.BlockCanBuildEvent" => {
                     context
                         .register_event::<

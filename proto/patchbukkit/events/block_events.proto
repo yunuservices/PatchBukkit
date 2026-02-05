@@ -191,3 +191,48 @@ message PlayerInteractEvent {
   string item_key = 5;
   string block_face = 6;
 }
+
+message NotePlayEvent {
+  string block_key = 1;
+  patchbukkit.common.Location location = 2;
+  string instrument = 3;
+  int32 note = 4;
+}
+
+message SignChangeEvent {
+  patchbukkit.common.UUID player_uuid = 1;
+  string block_key = 2;
+  patchbukkit.common.Location location = 3;
+  repeated string lines = 4;
+  bool is_front_text = 5;
+}
+
+message TNTPrimeEvent {
+  patchbukkit.common.UUID player_uuid = 1;
+  string block_key = 2;
+  patchbukkit.common.Location location = 3;
+  string cause = 4;
+}
+
+message MoistureChangeEvent {
+  string block_key = 1;
+  patchbukkit.common.Location location = 2;
+  string new_block_key = 3;
+}
+
+message SpongeAbsorbBlockEntry {
+  string block_key = 1;
+  patchbukkit.common.Location location = 2;
+}
+
+message SpongeAbsorbEvent {
+  string block_key = 1;
+  patchbukkit.common.Location location = 2;
+  repeated SpongeAbsorbBlockEntry blocks = 3;
+}
+
+message FluidLevelChangeEvent {
+  string block_key = 1;
+  patchbukkit.common.Location location = 2;
+  string new_block_key = 3;
+}

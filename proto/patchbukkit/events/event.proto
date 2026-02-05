@@ -91,6 +91,12 @@ message Event {
     BlockRedstoneEvent block_redstone = 76;
     BlockMultiPlaceEvent block_multi_place = 77;
     BlockPhysicsEvent block_physics = 78;
+    NotePlayEvent note_play = 79;
+    SignChangeEvent sign_change = 80;
+    TNTPrimeEvent tnt_prime = 81;
+    MoistureChangeEvent moisture_change = 82;
+    SpongeAbsorbEvent sponge_absorb = 83;
+    FluidLevelChangeEvent fluid_level_change = 84;
   }
 }
 

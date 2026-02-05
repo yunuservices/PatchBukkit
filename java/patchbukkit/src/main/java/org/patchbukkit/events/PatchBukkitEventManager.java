@@ -55,6 +55,13 @@ import patchbukkit.events.BlockMultiPlaceBlockEntry;
 import patchbukkit.events.BlockMultiPlaceEvent;
 import patchbukkit.events.BlockPhysicsEvent;
 import patchbukkit.events.BlockPlaceEvent;
+import patchbukkit.events.NotePlayEvent;
+import patchbukkit.events.SignChangeEvent;
+import patchbukkit.events.TntPrimeEvent;
+import patchbukkit.events.MoistureChangeEvent;
+import patchbukkit.events.SpongeAbsorbEvent;
+import patchbukkit.events.SpongeAbsorbBlockEntry;
+import patchbukkit.events.FluidLevelChangeEvent;
 import patchbukkit.events.PlayerInteractEvent;
 import patchbukkit.events.EntitySpawnEvent;
 import patchbukkit.events.EntityDamageEvent;
@@ -1276,6 +1283,101 @@ public class PatchBukkitEventManager {
                             .setLocation(BridgeUtils.convertLocation(physicsBlock.getLocation()))
                             .setSourceBlockKey(physicsEvent.getChangedType().getMaterial().getKey().toString())
                             .setSourceLocation(BridgeUtils.convertLocation(physicsBlock.getLocation()))
+                            .build()
+                    ).build()
+                );
+                break;
+            case "org.bukkit.event.block.NotePlayEvent":
+                var noteEvent = (org.bukkit.event.block.NotePlayEvent) event;
+                Block noteBlock = noteEvent.getBlock();
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setNotePlay(
+                        NotePlayEvent.newBuilder()
+                            .setBlockKey(noteBlock.getType().getKey().toString())
+                            .setLocation(BridgeUtils.convertLocation(noteBlock.getLocation()))
+                            .setInstrument(noteEvent.getInstrument().name())
+                            .setNote(noteEvent.getNote().getId())
+                            .build()
+                    ).build()
+                );
+                break;
+            case "org.bukkit.event.block.SignChangeEvent":
+                var signEvent = (org.bukkit.event.block.SignChangeEvent) event;
+                Block signBlock = signEvent.getBlock();
+                var signBuilder = SignChangeEvent.newBuilder()
+                    .setPlayerUuid(BridgeUtils.convertUuid(signEvent.getPlayer().getUniqueId()))
+                    .setBlockKey(signBlock.getType().getKey().toString())
+                    .setLocation(BridgeUtils.convertLocation(signBlock.getLocation()));
+                for (String line : signEvent.getLines()) {
+                    signBuilder.addLines(line != null ? line : "");
+                }
+                try {
+                    Method method = signEvent.getClass().getMethod("isFrontText");
+                    Object value = method.invoke(signEvent);
+                    if (value instanceof Boolean b) {
+                        signBuilder.setIsFrontText(b);
+                    }
+                } catch (ReflectiveOperationException ignored) {
+                    signBuilder.setIsFrontText(true);
+                }
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setSignChange(signBuilder.build()).build()
+                );
+                break;
+            case "org.bukkit.event.block.TNTPrimeEvent":
+                var tntEvent = (org.bukkit.event.block.TNTPrimeEvent) event;
+                Block tntBlock = tntEvent.getBlock();
+                var tntBuilder = TntPrimeEvent.newBuilder()
+                    .setBlockKey(tntBlock.getType().getKey().toString())
+                    .setLocation(BridgeUtils.convertLocation(tntBlock.getLocation()))
+                    .setCause(tntEvent.getCause().name());
+                if (tntEvent.getPrimingEntity() instanceof org.bukkit.entity.Player player) {
+                    tntBuilder.setPlayerUuid(BridgeUtils.convertUuid(player.getUniqueId()));
+                }
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setTntPrime(tntBuilder.build()).build()
+                );
+                break;
+            case "org.bukkit.event.block.MoistureChangeEvent":
+                var moistureEvent = (org.bukkit.event.block.MoistureChangeEvent) event;
+                Block moistureBlock = moistureEvent.getBlock();
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setMoistureChange(
+                        MoistureChangeEvent.newBuilder()
+                            .setBlockKey(moistureBlock.getType().getKey().toString())
+                            .setLocation(BridgeUtils.convertLocation(moistureBlock.getLocation()))
+                            .setNewBlockKey(moistureEvent.getNewState().getType().getKey().toString())
+                            .build()
+                    ).build()
+                );
+                break;
+            case "org.bukkit.event.block.SpongeAbsorbEvent":
+                var spongeEvent = (org.bukkit.event.block.SpongeAbsorbEvent) event;
+                Block spongeBlock = spongeEvent.getBlock();
+                var spongeBuilder = SpongeAbsorbEvent.newBuilder()
+                    .setBlockKey(spongeBlock.getType().getKey().toString())
+                    .setLocation(BridgeUtils.convertLocation(spongeBlock.getLocation()));
+                for (org.bukkit.block.BlockState state : spongeEvent.getBlocks()) {
+                    spongeBuilder.addBlocks(
+                        SpongeAbsorbBlockEntry.newBuilder()
+                            .setBlockKey(state.getType().getKey().toString())
+                            .setLocation(BridgeUtils.convertLocation(state.getLocation()))
+                            .build()
+                    );
+                }
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setSpongeAbsorb(spongeBuilder.build()).build()
+                );
+                break;
+            case "org.bukkit.event.block.FluidLevelChangeEvent":
+                var fluidEvent = (org.bukkit.event.block.FluidLevelChangeEvent) event;
+                Block fluidBlock = fluidEvent.getBlock();
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setFluidLevelChange(
+                        FluidLevelChangeEvent.newBuilder()
+                            .setBlockKey(fluidBlock.getType().getKey().toString())
+                            .setLocation(BridgeUtils.convertLocation(fluidBlock.getLocation()))
+                            .setNewBlockKey(fluidEvent.getNewState().getType().getKey().toString())
                             .build()
                     ).build()
                 );

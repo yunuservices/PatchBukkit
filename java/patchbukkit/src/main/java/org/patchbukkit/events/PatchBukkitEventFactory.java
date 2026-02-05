@@ -7,6 +7,7 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Entity;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDamageAbortEvent;
 import org.bukkit.event.block.BlockDamageEvent;
@@ -28,6 +29,14 @@ import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockSpreadEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.NotePlayEvent;
+import org.bukkit.event.block.SignChangeEvent;
+import org.bukkit.event.block.TNTPrimeEvent;
+import org.bukkit.event.block.MoistureChangeEvent;
+import org.bukkit.event.block.SpongeAbsorbEvent;
+import org.bukkit.event.block.FluidLevelChangeEvent;
+import org.bukkit.Instrument;
+import org.bukkit.Note;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
@@ -1490,6 +1499,173 @@ public class PatchBukkitEventFactory {
                     : block.getBlockData();
                 yield new BlockPhysicsEvent(block, data);
             }
+            case NOTE_PLAY -> {
+                patchbukkit.events.NotePlayEvent noteEvent = event.getNotePlay();
+                Location location = BridgeUtils.convertLocation(noteEvent.getLocation());
+                if (location == null || !(location.getWorld() instanceof PatchBukkitWorld world)) {
+                    yield null;
+                }
+                Block block = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    noteEvent.getBlockKey()
+                );
+                Instrument instrument = Instrument.PIANO;
+                if (!noteEvent.getInstrument().isEmpty()) {
+                    try {
+                        instrument = Instrument.valueOf(noteEvent.getInstrument());
+                    } catch (IllegalArgumentException ignored) {
+                        instrument = Instrument.PIANO;
+                    }
+                }
+                int rawNote = Math.max(0, Math.min(24, noteEvent.getNote()));
+                Note note = new Note((byte) rawNote);
+                yield new NotePlayEvent(block, instrument, note);
+            }
+            case SIGN_CHANGE -> {
+                patchbukkit.events.SignChangeEvent signEvent = event.getSignChange();
+                Player player = getPlayer(signEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+
+                Location location = BridgeUtils.convertLocation(signEvent.getLocation());
+                if (location == null || !(location.getWorld() instanceof PatchBukkitWorld world)) {
+                    yield null;
+                }
+                Block block = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    signEvent.getBlockKey()
+                );
+                String[] lines = new String[4];
+                java.util.List<String> linesList = signEvent.getLinesList();
+                for (int i = 0; i < lines.length; i++) {
+                    lines[i] = i < linesList.size() ? linesList.get(i) : "";
+                }
+                org.bukkit.event.Event constructed =
+                    createSignChangeEvent(block, player, lines, signEvent.getIsFrontText());
+                if (constructed instanceof SignChangeEvent signChange) {
+                    yield signChange;
+                }
+                yield null;
+            }
+            case TNT_PRIME -> {
+                patchbukkit.events.TNTPrimeEvent tntEvent = event.getTntPrime();
+                Location location = BridgeUtils.convertLocation(tntEvent.getLocation());
+                if (location == null || !(location.getWorld() instanceof PatchBukkitWorld world)) {
+                    yield null;
+                }
+                Block block = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    tntEvent.getBlockKey()
+                );
+                TNTPrimeEvent.PrimeCause cause = TNTPrimeEvent.PrimeCause.PLAYER;
+                if (!tntEvent.getCause().isEmpty()) {
+                    try {
+                        cause = TNTPrimeEvent.PrimeCause.valueOf(tntEvent.getCause());
+                    } catch (IllegalArgumentException ignored) {
+                        cause = TNTPrimeEvent.PrimeCause.PLAYER;
+                    }
+                }
+                Player player = null;
+                if (tntEvent.hasPlayerUuid()) {
+                    player = getPlayer(tntEvent.getPlayerUuid().getValue());
+                }
+                org.bukkit.event.Event constructed = createTntPrimeEvent(block, cause, player);
+                if (constructed instanceof TNTPrimeEvent tntPrime) {
+                    yield tntPrime;
+                }
+                yield null;
+            }
+            case MOISTURE_CHANGE -> {
+                patchbukkit.events.MoistureChangeEvent moistureEvent = event.getMoistureChange();
+                Location location = BridgeUtils.convertLocation(moistureEvent.getLocation());
+                if (location == null || !(location.getWorld() instanceof PatchBukkitWorld world)) {
+                    yield null;
+                }
+                Block block = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    moistureEvent.getBlockKey()
+                );
+                String newKey = moistureEvent.getNewBlockKey().isEmpty()
+                    ? "minecraft:air"
+                    : moistureEvent.getNewBlockKey();
+                Block newBlock = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    newKey
+                );
+                yield new MoistureChangeEvent(block, newBlock.getState());
+            }
+            case SPONGE_ABSORB -> {
+                patchbukkit.events.SpongeAbsorbEvent spongeEvent = event.getSpongeAbsorb();
+                Location location = BridgeUtils.convertLocation(spongeEvent.getLocation());
+                if (location == null || !(location.getWorld() instanceof PatchBukkitWorld world)) {
+                    yield null;
+                }
+                Block block = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    spongeEvent.getBlockKey()
+                );
+                java.util.List<org.bukkit.block.BlockState> states = new java.util.ArrayList<>();
+                for (patchbukkit.events.SpongeAbsorbBlockEntry entry : spongeEvent.getBlocksList()) {
+                    Location entryLoc = BridgeUtils.convertLocation(entry.getLocation());
+                    if (entryLoc == null || !(entryLoc.getWorld() instanceof PatchBukkitWorld entryWorld)) {
+                        continue;
+                    }
+                    String key = entry.getBlockKey().isEmpty()
+                        ? "minecraft:air"
+                        : entry.getBlockKey();
+                    Block entryBlock = PatchBukkitBlock.create(
+                        entryWorld,
+                        entryLoc.getBlockX(),
+                        entryLoc.getBlockY(),
+                        entryLoc.getBlockZ(),
+                        key
+                    );
+                    states.add(entryBlock.getState());
+                }
+                yield new SpongeAbsorbEvent(block, states);
+            }
+            case FLUID_LEVEL_CHANGE -> {
+                patchbukkit.events.FluidLevelChangeEvent fluidEvent = event.getFluidLevelChange();
+                Location location = BridgeUtils.convertLocation(fluidEvent.getLocation());
+                if (location == null || !(location.getWorld() instanceof PatchBukkitWorld world)) {
+                    yield null;
+                }
+                Block block = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    fluidEvent.getBlockKey()
+                );
+                String newKey = fluidEvent.getNewBlockKey().isEmpty()
+                    ? "minecraft:air"
+                    : fluidEvent.getNewBlockKey();
+                Block newBlock = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    newKey
+                );
+                yield new FluidLevelChangeEvent(block, newBlock.getState());
+            }
             case BLOCK_CAN_BUILD -> {
                 patchbukkit.events.BlockCanBuildEvent canBuildEvent = event.getBlockCanBuild();
                 Player player = getPlayer(canBuildEvent.getPlayerUuid().getValue());
@@ -2680,6 +2856,84 @@ public class PatchBukkitEventFactory {
                     .setSourceLocation(BridgeUtils.convertLocation(block.getLocation()))
                     .build()
             );
+        } else if (event instanceof NotePlayEvent noteEvent) {
+            Block block = noteEvent.getBlock();
+            eventBuilder.setNotePlay(
+                patchbukkit.events.NotePlayEvent.newBuilder()
+                    .setBlockKey(block.getType().getKey().toString())
+                    .setLocation(BridgeUtils.convertLocation(block.getLocation()))
+                    .setInstrument(noteEvent.getInstrument().name())
+                    .setNote(noteEvent.getNote().getId())
+                    .build()
+            );
+        } else if (event instanceof SignChangeEvent signEvent) {
+            Block block = signEvent.getBlock();
+            String[] lines = signEvent.getLines();
+            var builder = patchbukkit.events.SignChangeEvent.newBuilder()
+                .setPlayerUuid(UUID.newBuilder()
+                    .setValue(signEvent.getPlayer().getUniqueId().toString())
+                    .build())
+                .setBlockKey(block.getType().getKey().toString())
+                .setLocation(BridgeUtils.convertLocation(block.getLocation()));
+            for (String line : lines) {
+                builder.addLines(line != null ? line : "");
+            }
+            try {
+                java.lang.reflect.Method method = signEvent.getClass().getMethod("isFrontText");
+                Object value = method.invoke(signEvent);
+                if (value instanceof Boolean b) {
+                    builder.setIsFrontText(b);
+                }
+            } catch (ReflectiveOperationException ignored) {
+                builder.setIsFrontText(true);
+            }
+            eventBuilder.setSignChange(builder.build());
+        } else if (event instanceof TNTPrimeEvent tntEvent) {
+            Block block = tntEvent.getBlock();
+            var builder = patchbukkit.events.TNTPrimeEvent.newBuilder()
+                .setBlockKey(block.getType().getKey().toString())
+                .setLocation(BridgeUtils.convertLocation(block.getLocation()))
+                .setCause(tntEvent.getCause().name());
+            if (tntEvent.getPrimingEntity() instanceof Player player) {
+                builder.setPlayerUuid(UUID.newBuilder()
+                    .setValue(player.getUniqueId().toString())
+                    .build());
+            }
+            eventBuilder.setTntPrime(builder.build());
+        } else if (event instanceof MoistureChangeEvent moistureEvent) {
+            Block block = moistureEvent.getBlock();
+            org.bukkit.block.BlockState newState = moistureEvent.getNewState();
+            eventBuilder.setMoistureChange(
+                patchbukkit.events.MoistureChangeEvent.newBuilder()
+                    .setBlockKey(block.getType().getKey().toString())
+                    .setLocation(BridgeUtils.convertLocation(block.getLocation()))
+                    .setNewBlockKey(newState.getType().getKey().toString())
+                    .build()
+            );
+        } else if (event instanceof SpongeAbsorbEvent spongeEvent) {
+            Block block = spongeEvent.getBlock();
+            var builder = patchbukkit.events.SpongeAbsorbEvent.newBuilder()
+                .setBlockKey(block.getType().getKey().toString())
+                .setLocation(BridgeUtils.convertLocation(block.getLocation()));
+            for (org.bukkit.block.BlockState state : spongeEvent.getBlocks()) {
+                builder.addBlocks(
+                    patchbukkit.events.SpongeAbsorbBlockEntry.newBuilder()
+                        .setBlockKey(state.getType().getKey().toString())
+                        .setLocation(BridgeUtils.convertLocation(state.getLocation()))
+                        .build()
+                );
+            }
+            eventBuilder.setSpongeAbsorb(builder.build());
+        } else if (event instanceof FluidLevelChangeEvent fluidEvent) {
+            Block block = fluidEvent.getBlock();
+            org.bukkit.block.BlockState newState = fluidEvent.getNewState();
+            eventBuilder.setFluidLevelChange(
+                patchbukkit.events.FluidLevelChangeEvent.newBuilder()
+                    .setBlockKey(block.getType().getKey().toString())
+                    .setLocation(BridgeUtils.convertLocation(block.getLocation()))
+                    .setNewBlockKey(newState.getType().getKey().toString())
+                    .build()
+            );
         } else if (event instanceof BlockCanBuildEvent canBuildEvent) {
             Block block = canBuildEvent.getBlock();
             boolean canBuild = canBuildEvent.isBuildable();
@@ -3003,6 +3257,80 @@ public class PatchBukkitEventFactory {
             java.lang.reflect.Constructor<BlockCanBuildEvent> ctor =
                 BlockCanBuildEvent.class.getConstructor(Block.class, boolean.class);
             return ctor.newInstance(block, canBuild);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static org.bukkit.event.Event createSignChangeEvent(
+        @NotNull Block block,
+        @NotNull Player player,
+        @NotNull String[] lines,
+        boolean isFrontText
+    ) {
+        try {
+            java.lang.reflect.Constructor<SignChangeEvent> ctor =
+                SignChangeEvent.class.getConstructor(Block.class, Player.class, String[].class);
+            return ctor.newInstance(block, player, lines);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<SignChangeEvent> ctor =
+                SignChangeEvent.class.getConstructor(Block.class, Player.class, String[].class, boolean.class);
+            return ctor.newInstance(block, player, lines, isFrontText);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            Class<?> sideClass = Class.forName("org.bukkit.block.sign.SignSide");
+            @SuppressWarnings("unchecked")
+            Object side = Enum.valueOf((Class<Enum>) sideClass, isFrontText ? "FRONT" : "BACK");
+            java.lang.reflect.Constructor<?> ctor =
+                SignChangeEvent.class.getConstructor(Block.class, Player.class, String[].class, sideClass);
+            return (org.bukkit.event.Event) ctor.newInstance(block, player, lines, side);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            Class<?> sideClass = Class.forName("org.bukkit.block.sign.Side");
+            @SuppressWarnings("unchecked")
+            Object side = Enum.valueOf((Class<Enum>) sideClass, isFrontText ? "FRONT" : "BACK");
+            java.lang.reflect.Constructor<?> ctor =
+                SignChangeEvent.class.getConstructor(Block.class, Player.class, String[].class, sideClass);
+            return (org.bukkit.event.Event) ctor.newInstance(block, player, lines, side);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static org.bukkit.event.Event createTntPrimeEvent(
+        @NotNull Block block,
+        @NotNull TNTPrimeEvent.PrimeCause cause,
+        @Nullable Entity primer
+    ) {
+        try {
+            java.lang.reflect.Constructor<TNTPrimeEvent> ctor =
+                TNTPrimeEvent.class.getConstructor(Block.class, TNTPrimeEvent.PrimeCause.class, Entity.class);
+            return ctor.newInstance(block, cause, primer);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<TNTPrimeEvent> ctor =
+                TNTPrimeEvent.class.getConstructor(Block.class, TNTPrimeEvent.PrimeCause.class);
+            return ctor.newInstance(block, cause);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<TNTPrimeEvent> ctor =
+                TNTPrimeEvent.class.getConstructor(Block.class, TNTPrimeEvent.PrimeCause.class, Entity.class, Block.class);
+            return ctor.newInstance(block, cause, primer, block);
         } catch (ReflectiveOperationException ignored) {
             // ignore
         }
