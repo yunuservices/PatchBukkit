@@ -9,12 +9,12 @@ build = "build/main.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-pumpkin = { path = "../../Pumpkin/pumpkin", package = "pumpkin" }
-pumpkin-data = { path = "../../Pumpkin/pumpkin-data", package = "pumpkin-data" }
-pumpkin-protocol = { path = "../../Pumpkin/pumpkin-protocol", package = "pumpkin-protocol" }
-pumpkin-util = { path = "../../Pumpkin/pumpkin-util", package = "pumpkin-util" }
-pumpkin-world = { path = "../../Pumpkin/pumpkin-world", package = "pumpkin-world" }
-pumpkin-api-macros = { path = "../../Pumpkin/pumpkin-api-macros", package = "pumpkin-api-macros" }
+pumpkin = { git = "https://github.com/yunuservices/Pumpkin.git", branch = "feat/events", package = "pumpkin" }
+pumpkin-data = { git = "https://github.com/yunuservices/Pumpkin.git", branch = "feat/events", package = "pumpkin-data" }
+pumpkin-protocol = { git = "https://github.com/yunuservices/Pumpkin.git", branch = "feat/events", package = "pumpkin-protocol" }
+pumpkin-util = { git = "https://github.com/yunuservices/Pumpkin.git", branch = "feat/events", package = "pumpkin-util" }
+pumpkin-world = { git = "https://github.com/yunuservices/Pumpkin.git", branch = "feat/events", package = "pumpkin-world" }
+pumpkin-api-macros = { git = "https://github.com/yunuservices/Pumpkin.git", branch = "feat/events", package = "pumpkin-api-macros" }
 
 tokio = "1"
 log = "0.4"
