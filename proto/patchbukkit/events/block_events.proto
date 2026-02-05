@@ -37,6 +37,18 @@ message BlockDispenseEvent {
   patchbukkit.common.Vec3 velocity = 5;
 }
 
+message BlockDropItemEntry {
+  string item_key = 1;
+  int32 item_amount = 2;
+}
+
+message BlockDropItemEvent {
+  patchbukkit.common.UUID player_uuid = 1;
+  string block_key = 2;
+  patchbukkit.common.Location location = 3;
+  repeated BlockDropItemEntry items = 4;
+}
+
 message BlockPlaceEvent {
   patchbukkit.common.UUID player_uuid = 1;
   string block_key = 2;

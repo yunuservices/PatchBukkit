@@ -5,6 +5,7 @@ use pumpkin::plugin::block::block_break::BlockBreakEvent;
 use pumpkin::plugin::block::block_damage::BlockDamageEvent;
 use pumpkin::plugin::block::block_damage_abort::BlockDamageAbortEvent;
 use pumpkin::plugin::block::block_dispense::BlockDispenseEvent;
+use pumpkin::plugin::block::block_drop_item::BlockDropItemEvent;
 use pumpkin::plugin::block::block_place::BlockPlaceEvent;
 use pumpkin::plugin::block::block_can_build::BlockCanBuildEvent;
 use pumpkin::plugin::block::block_burn::BlockBurnEvent;
@@ -1027,6 +1028,21 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
                         .register_event::<
                             pumpkin::plugin::block::block_dispense::BlockDispenseEvent,
                             PatchBukkitEventHandler<pumpkin::plugin::block::block_dispense::BlockDispenseEvent>,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.block.BlockDropItemEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::block::block_drop_item::BlockDropItemEvent,
+                            PatchBukkitEventHandler<pumpkin::plugin::block::block_drop_item::BlockDropItemEvent>,
                         >(
                             Arc::new(PatchBukkitEventHandler::new(
                                 request.plugin_name.clone(),
@@ -2263,6 +2279,41 @@ pub fn ffi_native_bridge_call_event_impl(request: CallEventRequest) -> Option<Ca
                         .unwrap_or_else(|| Vector3::new(0.0, 0.0, 0.0));
                     let pumpkin_event =
                         BlockDispenseEvent::new(block, position, item_stack, velocity);
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
+                Data::BlockDropItem(block_drop_item_event_data) => {
+                    let uuid = uuid::Uuid::parse_str(&block_drop_item_event_data.player_uuid?.value)
+                        .ok()?;
+                    let player = context.server.get_player_by_uuid(uuid)?;
+                    let block = block_from_key(&block_drop_item_event_data.block_key);
+                    let position = block_drop_item_event_data
+                        .location
+                        .and_then(|loc| loc.position)
+                        .map(|pos| {
+                            pumpkin_util::math::position::BlockPos::new(
+                                pos.x as i32,
+                                pos.y as i32,
+                                pos.z as i32,
+                            )
+                        })
+                        .unwrap_or_else(|| player.position().to_block_pos());
+                    let mut items = Vec::new();
+                    for entry in block_drop_item_event_data.items {
+                        if entry.item_key.is_empty() && entry.item_amount <= 0 {
+                            continue;
+                        }
+                        let key = if entry.item_key.is_empty() {
+                            "minecraft:air"
+                        } else {
+                            entry.item_key.as_str()
+                        };
+                        let stack = item_stack_from_key(key, entry.item_amount);
+                        if !stack.is_empty() {
+                            items.push(stack);
+                        }
+                    }
+                    let pumpkin_event = BlockDropItemEvent::new(player, block, position, items);
                     context.server.plugin_manager.fire(pumpkin_event).await;
                     Some(true)
                 }

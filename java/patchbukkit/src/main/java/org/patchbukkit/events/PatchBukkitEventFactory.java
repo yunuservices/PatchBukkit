@@ -11,6 +11,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDamageAbortEvent;
 import org.bukkit.event.block.BlockDamageEvent;
 import org.bukkit.event.block.BlockDispenseEvent;
+import org.bukkit.event.block.BlockDropItemEvent;
 import org.bukkit.event.block.BlockCanBuildEvent;
 import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
@@ -1123,6 +1124,40 @@ public class PatchBukkitEventFactory {
 
                 yield new BlockDispenseEvent(block, item, velocity);
             }
+            case BLOCK_DROP_ITEM -> {
+                patchbukkit.events.BlockDropItemEvent dropItemEvent = event.getBlockDropItem();
+                Player player = getPlayer(dropItemEvent.getPlayerUuid().getValue());
+                if (player == null) yield null;
+
+                Location location = BridgeUtils.convertLocation(dropItemEvent.getLocation());
+                if (location == null || !(location.getWorld() instanceof PatchBukkitWorld world)) {
+                    yield null;
+                }
+
+                org.bukkit.block.Block block = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    dropItemEvent.getBlockKey()
+                );
+
+                java.util.List<org.bukkit.entity.Item> items = new java.util.ArrayList<>();
+                for (patchbukkit.events.BlockDropItemEntry entry : dropItemEvent.getItemsList()) {
+                    if (entry.getItemKey().isEmpty() || entry.getItemAmount() <= 0) continue;
+                    Material material = Material.matchMaterial(entry.getItemKey());
+                    if (material == null) {
+                        material = Material.matchMaterial("minecraft:" + entry.getItemKey());
+                    }
+                    if (material == null) continue;
+                    ItemStack stack = new ItemStack(material, entry.getItemAmount());
+                    org.patchbukkit.entity.PatchBukkitItem itemEntity =
+                        new org.patchbukkit.entity.PatchBukkitItem(java.util.UUID.randomUUID(), stack);
+                    items.add(itemEntity);
+                }
+
+                yield new BlockDropItemEvent(block, player, items);
+            }
             case BLOCK_CAN_BUILD -> {
                 patchbukkit.events.BlockCanBuildEvent canBuildEvent = event.getBlockCanBuild();
                 Player player = getPlayer(canBuildEvent.getPlayerUuid().getValue());
@@ -2145,6 +2180,27 @@ public class PatchBukkitEventFactory {
                         .build())
                     .build()
             );
+        } else if (event instanceof BlockDropItemEvent dropItemEvent) {
+            var block = dropItemEvent.getBlock();
+            var builder = patchbukkit.events.BlockDropItemEvent.newBuilder()
+                .setPlayerUuid(UUID.newBuilder()
+                    .setValue(dropItemEvent.getPlayer().getUniqueId().toString())
+                    .build())
+                .setBlockKey(block.getType().getKey().toString())
+                .setLocation(BridgeUtils.convertLocation(block.getLocation()));
+
+            for (org.bukkit.entity.Item item : dropItemEvent.getItems()) {
+                ItemStack stack = item.getItemStack();
+                if (stack == null) continue;
+                builder.addItems(
+                    patchbukkit.events.BlockDropItemEntry.newBuilder()
+                        .setItemKey(stack.getType().getKey().toString())
+                        .setItemAmount(stack.getAmount())
+                        .build()
+                );
+            }
+
+            eventBuilder.setBlockDropItem(builder.build());
         } else if (event instanceof BlockCanBuildEvent canBuildEvent) {
             Block block = canBuildEvent.getBlock();
             boolean canBuild = canBuildEvent.isBuildable();

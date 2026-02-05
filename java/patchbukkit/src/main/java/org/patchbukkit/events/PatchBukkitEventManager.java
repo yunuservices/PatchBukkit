@@ -37,6 +37,8 @@ import patchbukkit.events.BlockBreakEvent;
 import patchbukkit.events.BlockDamageAbortEvent;
 import patchbukkit.events.BlockDamageEvent;
 import patchbukkit.events.BlockDispenseEvent;
+import patchbukkit.events.BlockDropItemEntry;
+import patchbukkit.events.BlockDropItemEvent;
 import patchbukkit.events.BlockPlaceEvent;
 import patchbukkit.events.PlayerInteractEvent;
 import patchbukkit.events.EntitySpawnEvent;
@@ -1055,9 +1057,29 @@ public class PatchBukkitEventManager {
                                 .setX(velocity.getX())
                                 .setY(velocity.getY())
                                 .setZ(velocity.getZ())
-                                .build())
+                            .build())
                             .build()
                     ).build()
+                );
+                break;
+            case "org.bukkit.event.block.BlockDropItemEvent":
+                var dropItemEvent = (org.bukkit.event.block.BlockDropItemEvent) event;
+                Block dropBlock = dropItemEvent.getBlock();
+                var dropBuilder = BlockDropItemEvent.newBuilder()
+                    .setPlayerUuid(BridgeUtils.convertUuid(dropItemEvent.getPlayer().getUniqueId()))
+                    .setBlockKey(dropBlock.getType().getKey().toString())
+                    .setLocation(BridgeUtils.convertLocation(dropBlock.getLocation()));
+                for (org.bukkit.entity.Item item : dropItemEvent.getItems()) {
+                    if (item.getItemStack() == null) continue;
+                    dropBuilder.addItems(
+                        BlockDropItemEntry.newBuilder()
+                            .setItemKey(item.getItemStack().getType().getKey().toString())
+                            .setItemAmount(item.getItemStack().getAmount())
+                            .build()
+                    );
+                }
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setBlockDropItem(dropBuilder.build()).build()
                 );
                 break;
             case "org.bukkit.event.block.BlockCanBuildEvent":

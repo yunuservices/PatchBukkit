@@ -19,7 +19,7 @@ use crate::java::jvm::commands::JvmCommand;
 use crate::proto::patchbukkit::common::{Location, Uuid, Vec3, World};
 use crate::proto::patchbukkit::events::event::Data;
 use crate::proto::patchbukkit::events::{
-    BlockBreakEvent, BlockDamageEvent, BlockDamageAbortEvent, BlockDispenseEvent, BlockPlaceEvent, BlockCanBuildEvent, BlockBurnEvent, BlockIgniteEvent, BlockSpreadEvent, Event, PlayerChatEvent, PlayerCommandEvent, PlayerCommandSendEvent, PlayerJoinEvent,
+    BlockBreakEvent, BlockDamageEvent, BlockDamageAbortEvent, BlockDispenseEvent, BlockDropItemEntry, BlockDropItemEvent, BlockPlaceEvent, BlockCanBuildEvent, BlockBurnEvent, BlockIgniteEvent, BlockSpreadEvent, Event, PlayerChatEvent, PlayerCommandEvent, PlayerCommandSendEvent, PlayerJoinEvent,
     PlayerLeaveEvent, PlayerMoveEvent, PlayerInteractEvent, ServerBroadcastEvent, ServerCommandEvent,
     EntityDamageEvent, EntityDeathEvent, EntitySpawnEvent,
     PlayerLoginEvent, PlayerTeleportEvent, PlayerChangeWorldEvent, PlayerGamemodeChangeEvent,
@@ -2478,6 +2478,75 @@ impl PatchBukkitEvent for pumpkin::plugin::block::block_dispense::BlockDispenseE
                 }
                 if let Some(vel) = event.velocity {
                     self.velocity = Vector3::new(vel.x, vel.y, vel.z);
+                }
+            }
+            _ => {}
+        }
+
+        Some(())
+    }
+}
+
+impl PatchBukkitEvent for pumpkin::plugin::block::block_drop_item::BlockDropItemEvent {
+    fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
+        let world_uuid = self.player.world().uuid;
+        let location = build_location(
+            world_uuid,
+            &Vector3::new(
+                f64::from(self.block_position.0.x),
+                f64::from(self.block_position.0.y),
+                f64::from(self.block_position.0.z),
+            ),
+            0.0,
+            0.0,
+        );
+        let items = self
+            .items
+            .iter()
+            .map(|item| BlockDropItemEntry {
+                item_key: item_to_key(item.item),
+                item_amount: i32::from(item.item_count),
+            })
+            .collect();
+
+        JvmEventPayload {
+            event: Event {
+                data: Some(Data::BlockDropItem(BlockDropItemEvent {
+                    player_uuid: Some(Uuid {
+                        value: self.player.gameprofile.id.to_string(),
+                    }),
+                    block_key: block_to_key(self.block),
+                    location: Some(location),
+                    items,
+                })),
+            },
+            context: EventContext {
+                server,
+                player: Some(self.player.clone()),
+            },
+        }
+    }
+
+    fn apply_modifications(&mut self, _server: &Arc<Server>, data: Data) -> Option<()> {
+        match data {
+            Data::BlockDropItem(event) => {
+                if !event.items.is_empty() {
+                    let mut items = Vec::with_capacity(event.items.len());
+                    for entry in event.items {
+                        if entry.item_key.is_empty() && entry.item_amount <= 0 {
+                            continue;
+                        }
+                        let key = if entry.item_key.is_empty() {
+                            "minecraft:air"
+                        } else {
+                            entry.item_key.as_str()
+                        };
+                        let stack = item_stack_from_key(key, entry.item_amount.clamp(0, u8::MAX as i32) as u8);
+                        if !stack.is_empty() {
+                            items.push(stack);
+                        }
+                    }
+                    self.items = items;
                 }
             }
             _ => {}
