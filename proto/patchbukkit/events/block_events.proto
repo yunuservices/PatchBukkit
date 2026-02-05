@@ -85,6 +85,14 @@ message BlockFormEvent {
   patchbukkit.common.Location location = 3;
 }
 
+message BlockFromToEvent {
+  string block_key = 1;
+  patchbukkit.common.Location location = 2;
+  string to_block_key = 3;
+  patchbukkit.common.Location to_location = 4;
+  string face = 5;
+}
+
 message BlockPlaceEvent {
   patchbukkit.common.UUID player_uuid = 1;
   string block_key = 2;

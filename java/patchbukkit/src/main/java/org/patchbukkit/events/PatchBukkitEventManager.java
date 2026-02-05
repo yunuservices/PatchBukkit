@@ -45,6 +45,7 @@ import patchbukkit.events.BlockFadeEvent;
 import patchbukkit.events.BlockFertilizeBlockEntry;
 import patchbukkit.events.BlockFertilizeEvent;
 import patchbukkit.events.BlockFormEvent;
+import patchbukkit.events.BlockFromToEvent;
 import patchbukkit.events.BlockPlaceEvent;
 import patchbukkit.events.PlayerInteractEvent;
 import patchbukkit.events.EntitySpawnEvent;
@@ -1148,6 +1149,23 @@ public class PatchBukkitEventManager {
                             .setBlockKey(formBlock.getType().getKey().toString())
                             .setNewBlockKey(formEvent.getNewState().getType().getKey().toString())
                             .setLocation(BridgeUtils.convertLocation(formBlock.getLocation()))
+                            .build()
+                    ).build()
+                );
+                break;
+            case "org.bukkit.event.block.BlockFromToEvent":
+                var fromToEvent = (org.bukkit.event.block.BlockFromToEvent) event;
+                Block fromBlock = fromToEvent.getBlock();
+                Block toBlock = fromToEvent.getToBlock();
+                String face = fromToEvent.getFace() != null ? fromToEvent.getFace().name() : "";
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setBlockFromTo(
+                        BlockFromToEvent.newBuilder()
+                            .setBlockKey(fromBlock.getType().getKey().toString())
+                            .setLocation(BridgeUtils.convertLocation(fromBlock.getLocation()))
+                            .setToBlockKey(toBlock.getType().getKey().toString())
+                            .setToLocation(BridgeUtils.convertLocation(toBlock.getLocation()))
+                            .setFace(face)
                             .build()
                     ).build()
                 );
