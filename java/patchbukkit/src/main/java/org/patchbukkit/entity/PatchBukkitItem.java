@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import org.bukkit.entity.Item;
 import org.bukkit.inventory.ItemStack;
+import net.kyori.adventure.util.TriState;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -15,6 +16,9 @@ public class PatchBukkitItem extends PatchBukkitEntity implements Item {
     private boolean canPlayerPickup = true;
     private UUID owner;
     private UUID thrower;
+    private int health = 5;
+    private boolean willAge = true;
+    private TriState frictionState = TriState.NOT_SET;
 
     public PatchBukkitItem(@NotNull UUID uuid, @NotNull ItemStack itemStack) {
         super(uuid, "ITEM");
@@ -89,5 +93,35 @@ public class PatchBukkitItem extends PatchBukkitEntity implements Item {
     @Override
     public @Nullable UUID getThrower() {
         return thrower;
+    }
+
+    @Override
+    public int getHealth() {
+        return health;
+    }
+
+    @Override
+    public void setHealth(int health) {
+        this.health = health;
+    }
+
+    @Override
+    public boolean willAge() {
+        return willAge;
+    }
+
+    @Override
+    public void setWillAge(boolean value) {
+        this.willAge = value;
+    }
+
+    @Override
+    public @NotNull TriState getFrictionState() {
+        return frictionState;
+    }
+
+    @Override
+    public void setFrictionState(@NotNull TriState state) {
+        this.frictionState = state;
     }
 }

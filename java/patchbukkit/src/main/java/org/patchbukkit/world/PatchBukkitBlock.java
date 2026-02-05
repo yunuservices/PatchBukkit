@@ -84,12 +84,11 @@ public final class PatchBukkitBlock {
                 case "isEmpty":
                     return material.isAir();
                 case "isLiquid":
-                    return material.isLiquid();
+                    return material == Material.WATER || material == Material.LAVA;
                 case "getRelative":
                     return getRelative(args);
                 case "getChunk":
                     throw new UnsupportedOperationException("Unimplemented method 'getChunk'");
-                    throw new UnsupportedOperationException("Unimplemented method '" + name + "'");
                 case "equals":
                     return proxy == args[0];
                 case "hashCode":

@@ -330,7 +330,11 @@ public class PatchBukkitEventFactory {
                 Location bedLocation = BridgeUtils.convertLocation(bedEvent.getBedLocation());
                 if (bedLocation == null) yield null;
                 if (bedLocation.getWorld() == null) yield null;
-                yield new PlayerBedEnterEvent(player, bedLocation.getBlock());
+                org.bukkit.event.Event created = createPlayerBedEnterEvent(player, bedLocation.getBlock());
+                if (created instanceof PlayerBedEnterEvent) {
+                    yield created;
+                }
+                yield null;
             }
             case PLAYER_BED_LEAVE -> {
                 patchbukkit.events.PlayerBedLeaveEvent bedEvent = event.getPlayerBedLeave();
@@ -339,7 +343,11 @@ public class PatchBukkitEventFactory {
                 Location bedLocation = BridgeUtils.convertLocation(bedEvent.getBedLocation());
                 if (bedLocation == null) yield null;
                 if (bedLocation.getWorld() == null) yield null;
-                yield new PlayerBedLeaveEvent(player, bedLocation.getBlock());
+                org.bukkit.event.Event created = createPlayerBedLeaveEvent(player, bedLocation.getBlock());
+                if (created instanceof PlayerBedLeaveEvent) {
+                    yield created;
+                }
+                yield null;
             }
             case PLAYER_BUCKET_EMPTY -> {
                 patchbukkit.events.PlayerBucketEmptyEvent bucketEvent = event.getPlayerBucketEmpty();
@@ -773,7 +781,12 @@ public class PatchBukkitEventFactory {
                 PlayerResourcePackStatusEvent statusEvent =
                     new PlayerResourcePackStatusEvent(player, packUuid, status);
                 if (!packEvent.getHash().isEmpty()) {
-                    statusEvent.setHash(packEvent.getHash());
+                    try {
+                        java.lang.reflect.Method method = statusEvent.getClass().getMethod("setHash", String.class);
+                        method.invoke(statusEvent, packEvent.getHash());
+                    } catch (ReflectiveOperationException ignored) {
+                        // ignore
+                    }
                 }
                 yield statusEvent;
             }
@@ -864,7 +877,11 @@ public class PatchBukkitEventFactory {
                 if (recipeEvent.getRecipeKey().isEmpty()) yield null;
                 NamespacedKey key = NamespacedKey.fromString(recipeEvent.getRecipeKey());
                 if (key == null) yield null;
-                yield new PlayerRecipeDiscoverEvent(player, key);
+                org.bukkit.event.Event created = createPlayerRecipeDiscoverEvent(player, key);
+                if (created instanceof PlayerRecipeDiscoverEvent) {
+                    yield created;
+                }
+                yield null;
             }
             case PLAYER_RIPTIDE -> {
                 patchbukkit.events.PlayerRiptideEvent riptideEvent = event.getPlayerRiptide();
@@ -901,7 +918,11 @@ public class PatchBukkitEventFactory {
                         slot = EquipmentSlot.HAND;
                     }
                 }
-                yield new PlayerShearEntityEvent(player, entity, item, slot);
+                org.bukkit.event.Event created = createPlayerShearEntityEvent(player, entity, item, slot);
+                if (created instanceof PlayerShearEntityEvent) {
+                    yield created;
+                }
+                yield null;
             }
             case PLAYER_SPAWN_LOCATION -> {
                 patchbukkit.events.PlayerSpawnLocationEvent spawnEvent = event.getPlayerSpawnLocation();
@@ -1083,7 +1104,11 @@ public class PatchBukkitEventFactory {
                     }
                 }
 
-                yield new BlockDamageEvent(block, player, item, damageEvent.getInstaBreak());
+                org.bukkit.event.Event created = createBlockDamageEvent(block, player, item, damageEvent.getInstaBreak());
+                if (created instanceof BlockDamageEvent) {
+                    yield created;
+                }
+                yield null;
             }
             case BLOCK_DAMAGE_ABORT -> {
                 patchbukkit.events.BlockDamageAbortEvent damageAbortEvent = event.getBlockDamageAbort();
@@ -1114,7 +1139,11 @@ public class PatchBukkitEventFactory {
                     }
                 }
 
-                yield new BlockDamageAbortEvent(block, player, item);
+                org.bukkit.event.Event created = createBlockDamageAbortEvent(block, player, item);
+                if (created instanceof BlockDamageAbortEvent) {
+                    yield created;
+                }
+                yield null;
             }
             case BLOCK_DISPENSE -> {
                 patchbukkit.events.BlockDispenseEvent dispenseEvent = event.getBlockDispense();
@@ -1184,7 +1213,11 @@ public class PatchBukkitEventFactory {
                     items.add(itemEntity);
                 }
 
-                yield new BlockDropItemEvent(block, player, items);
+                org.bukkit.event.Event created = createBlockDropItemEvent(block, player, items);
+                if (created instanceof BlockDropItemEvent) {
+                    yield created;
+                }
+                yield null;
             }
             case BLOCK_EXPLODE -> {
                 patchbukkit.events.BlockExplodeEvent explodeEvent = event.getBlockExplode();
@@ -1220,7 +1253,11 @@ public class PatchBukkitEventFactory {
                     blockList.add(entryBlock);
                 }
 
-                yield new BlockExplodeEvent(block, blockList, explodeEvent.getYield());
+                org.bukkit.event.Event created = createBlockExplodeEvent(block, blockList, explodeEvent.getYield());
+                if (created instanceof BlockExplodeEvent) {
+                    yield created;
+                }
+                yield null;
             }
             case BLOCK_FADE -> {
                 patchbukkit.events.BlockFadeEvent fadeEvent = event.getBlockFade();
@@ -1400,7 +1437,24 @@ public class PatchBukkitEventFactory {
                     );
                     blocks.add(entryBlock);
                 }
-                yield new BlockPistonExtendEvent(block, blocks, extendEvent.getLength());
+                BlockFace face = BlockFace.SELF;
+                if (!extendEvent.getDirection().isEmpty()) {
+                    try {
+                        face = BlockFace.valueOf(extendEvent.getDirection());
+                    } catch (IllegalArgumentException ignored) {
+                        face = BlockFace.SELF;
+                    }
+                }
+                org.bukkit.event.Event created = createBlockPistonExtendEvent(
+                    block,
+                    blocks,
+                    extendEvent.getLength(),
+                    face
+                );
+                if (created instanceof BlockPistonExtendEvent) {
+                    yield created;
+                }
+                yield null;
             }
             case BLOCK_PISTON_RETRACT -> {
                 patchbukkit.events.BlockPistonRetractEvent retractEvent = event.getBlockPistonRetract();
@@ -1433,7 +1487,24 @@ public class PatchBukkitEventFactory {
                     );
                     blocks.add(entryBlock);
                 }
-                yield new BlockPistonRetractEvent(block, blocks, retractEvent.getLength());
+                BlockFace face = BlockFace.SELF;
+                if (!retractEvent.getDirection().isEmpty()) {
+                    try {
+                        face = BlockFace.valueOf(retractEvent.getDirection());
+                    } catch (IllegalArgumentException ignored) {
+                        face = BlockFace.SELF;
+                    }
+                }
+                org.bukkit.event.Event created = createBlockPistonRetractEvent(
+                    block,
+                    blocks,
+                    retractEvent.getLength(),
+                    face
+                );
+                if (created instanceof BlockPistonRetractEvent) {
+                    yield created;
+                }
+                yield null;
             }
             case BLOCK_REDSTONE -> {
                 patchbukkit.events.BlockRedstoneEvent redstoneEvent = event.getBlockRedstone();
@@ -1672,7 +1743,11 @@ public class PatchBukkitEventFactory {
                     location.getBlockZ(),
                     newKey
                 );
-                yield new FluidLevelChangeEvent(block, newBlock.getState());
+                org.bukkit.event.Event created = createFluidLevelChangeEvent(block, newBlock);
+                if (created instanceof FluidLevelChangeEvent) {
+                    yield created;
+                }
+                yield null;
             }
             case SPAWN_CHANGE -> {
                 patchbukkit.events.SpawnChangeEvent spawnEvent = event.getSpawnChange();
@@ -1831,7 +1906,11 @@ public class PatchBukkitEventFactory {
                 patchbukkit.events.EntityDeathEvent deathEvent = event.getEntityDeath();
                 java.util.UUID entityUuid = java.util.UUID.fromString(deathEvent.getEntityUuid().getValue());
                 PatchBukkitLivingEntity entity = new PatchBukkitLivingEntity(entityUuid, "Entity");
-                yield new EntityDeathEvent(entity, java.util.Collections.emptyList(), 0);
+                org.bukkit.event.Event created = createEntityDeathEvent(entity);
+                if (created instanceof EntityDeathEvent) {
+                    yield created;
+                }
+                yield null;
             }
             case SERVER_COMMAND -> {
                 patchbukkit.events.ServerCommandEvent commandEvent = event.getServerCommand();
@@ -1841,7 +1920,11 @@ public class PatchBukkitEventFactory {
                 patchbukkit.events.ServerBroadcastEvent broadcastEvent = event.getServerBroadcast();
                 Component messageComponent = GsonComponentSerializer.gson().deserialize(broadcastEvent.getMessage());
                 String message = PlainTextComponentSerializer.plainText().serialize(messageComponent);
-                yield new BroadcastMessageEvent(message);
+                org.bukkit.event.Event created = createBroadcastMessageEvent(messageComponent, message);
+                if (created instanceof BroadcastMessageEvent) {
+                    yield created;
+                }
+                yield null;
             }
             case SERVER_LIST_PING -> {
                 patchbukkit.events.ServerListPingEvent pingEvent = event.getServerListPing();
@@ -2219,7 +2302,7 @@ public class PatchBukkitEventFactory {
             String itemKey = item != null ? item.getType().getKey().toString() : "minecraft:air";
             int itemAmount = item != null ? item.getAmount() : 0;
             String slot = mendEvent.getSlot() != null ? mendEvent.getSlot().name() : "HAND";
-            var builder = patchbukkit.events.PlayerItemMendEvent.newBuilder()
+            var eventBuilderLocal = patchbukkit.events.PlayerItemMendEvent.newBuilder()
                 .setPlayerUuid(UUID.newBuilder()
                     .setValue(mendEvent.getPlayer().getUniqueId().toString())
                     .build())
@@ -2228,11 +2311,11 @@ public class PatchBukkitEventFactory {
                 .setSlot(slot)
                 .setRepairAmount(mendEvent.getRepairAmount());
             if (mendEvent.getExperienceOrb() != null) {
-                builder.setOrbUuid(UUID.newBuilder()
+                eventBuilderLocal.setOrbUuid(UUID.newBuilder()
                     .setValue(mendEvent.getExperienceOrb().getUniqueId().toString())
                     .build());
             }
-            eventBuilder.setPlayerItemMend(builder.build());
+            eventBuilder.setPlayerItemMend(eventBuilderLocal.build());
         } else if (event instanceof PlayerLevelChangeEvent levelEvent) {
             eventBuilder.setPlayerLevelChange(
                 patchbukkit.events.PlayerLevelChangeEvent.newBuilder()
@@ -2541,12 +2624,12 @@ public class PatchBukkitEventFactory {
                     .build()
             );
         } else if (event instanceof PlayerCommandSendEvent commandSendEvent) {
-            var builder = patchbukkit.events.PlayerCommandSendEvent.newBuilder()
+            var eventBuilderLocal = patchbukkit.events.PlayerCommandSendEvent.newBuilder()
                 .setPlayerUuid(UUID.newBuilder()
                     .setValue(commandSendEvent.getPlayer().getUniqueId().toString())
                     .build());
-            builder.addAllCommands(commandSendEvent.getCommands());
-            eventBuilder.setPlayerCommandSend(builder.build());
+            eventBuilderLocal.addAllCommands(commandSendEvent.getCommands());
+            eventBuilder.setPlayerCommandSend(eventBuilderLocal.build());
         } else if (event instanceof PlayerDropItemEvent dropEvent) {
             var item = dropEvent.getItemDrop();
             String itemKey = "minecraft:air";
@@ -2642,7 +2725,7 @@ public class PatchBukkitEventFactory {
         } else if (event instanceof PlayerInteractAtEntityEvent interactEvent) {
             var entity = interactEvent.getRightClicked();
             var pos = interactEvent.getClickedPosition();
-            var builder = patchbukkit.events.PlayerInteractAtEntityEvent.newBuilder()
+            var eventBuilderLocal = patchbukkit.events.PlayerInteractAtEntityEvent.newBuilder()
                 .setPlayerUuid(UUID.newBuilder()
                     .setValue(interactEvent.getPlayer().getUniqueId().toString())
                     .build())
@@ -2651,19 +2734,19 @@ public class PatchBukkitEventFactory {
                     .build())
                 .setEntityType(entity.getType().name());
             if (interactEvent.getHand() != null) {
-                builder.setHand(interactEvent.getHand().name());
+                eventBuilderLocal.setHand(interactEvent.getHand().name());
             }
             if (pos != null) {
-                builder.setClickedPosition(patchbukkit.common.Vec3.newBuilder()
+                eventBuilderLocal.setClickedPosition(patchbukkit.common.Vec3.newBuilder()
                     .setX(pos.getX())
                     .setY(pos.getY())
                     .setZ(pos.getZ())
                     .build());
             }
-            eventBuilder.setPlayerInteractAtEntity(builder.build());
+            eventBuilder.setPlayerInteractAtEntity(eventBuilderLocal.build());
         } else if (event instanceof PlayerInteractEntityEvent interactEvent) {
             var entity = interactEvent.getRightClicked();
-            var builder = patchbukkit.events.PlayerInteractEntityEvent.newBuilder()
+            var eventBuilderLocal = patchbukkit.events.PlayerInteractEntityEvent.newBuilder()
                 .setPlayerUuid(UUID.newBuilder()
                     .setValue(interactEvent.getPlayer().getUniqueId().toString())
                     .build())
@@ -2672,9 +2755,9 @@ public class PatchBukkitEventFactory {
                     .build())
                 .setEntityType(entity.getType().name());
             if (interactEvent.getHand() != null) {
-                builder.setHand(interactEvent.getHand().name());
+                eventBuilderLocal.setHand(interactEvent.getHand().name());
             }
-            eventBuilder.setPlayerInteractEntity(builder.build());
+            eventBuilder.setPlayerInteractEntity(eventBuilderLocal.build());
         } else if (event instanceof PlayerInteractEvent interactEvent) {
             var block = interactEvent.getClickedBlock();
             var location = block != null ? block.getLocation() : null;
@@ -2722,7 +2805,7 @@ public class PatchBukkitEventFactory {
                     .setBlockKey(block.getType().getKey().toString())
                     .setLocation(BridgeUtils.convertLocation(block.getLocation()))
                     .setItemKey(itemKey)
-                    .setInstaBreak(damageEvent.isInstaBreak())
+                    .setInstaBreak(resolveInstaBreak(damageEvent))
                     .build()
             );
         } else if (event instanceof BlockDamageAbortEvent damageAbortEvent) {
@@ -2760,7 +2843,7 @@ public class PatchBukkitEventFactory {
             );
         } else if (event instanceof BlockDropItemEvent dropItemEvent) {
             var block = dropItemEvent.getBlock();
-            var builder = patchbukkit.events.BlockDropItemEvent.newBuilder()
+            var eventBuilderLocal = patchbukkit.events.BlockDropItemEvent.newBuilder()
                 .setPlayerUuid(UUID.newBuilder()
                     .setValue(dropItemEvent.getPlayer().getUniqueId().toString())
                     .build())
@@ -2770,7 +2853,7 @@ public class PatchBukkitEventFactory {
             for (org.bukkit.entity.Item item : dropItemEvent.getItems()) {
                 ItemStack stack = item.getItemStack();
                 if (stack == null) continue;
-                builder.addItems(
+                eventBuilderLocal.addItems(
                     patchbukkit.events.BlockDropItemEntry.newBuilder()
                         .setItemKey(stack.getType().getKey().toString())
                         .setItemAmount(stack.getAmount())
@@ -2778,22 +2861,22 @@ public class PatchBukkitEventFactory {
                 );
             }
 
-            eventBuilder.setBlockDropItem(builder.build());
+            eventBuilder.setBlockDropItem(eventBuilderLocal.build());
         } else if (event instanceof BlockExplodeEvent explodeEvent) {
             var block = explodeEvent.getBlock();
-            var builder = patchbukkit.events.BlockExplodeEvent.newBuilder()
+            var eventBuilderLocal = patchbukkit.events.BlockExplodeEvent.newBuilder()
                 .setBlockKey(block.getType().getKey().toString())
                 .setLocation(BridgeUtils.convertLocation(block.getLocation()))
                 .setYield(explodeEvent.getYield());
             for (Block b : explodeEvent.blockList()) {
-                builder.addBlocks(
+                eventBuilderLocal.addBlocks(
                     patchbukkit.events.BlockExplodeBlockEntry.newBuilder()
                         .setBlockKey(b.getType().getKey().toString())
                         .setLocation(BridgeUtils.convertLocation(b.getLocation()))
                         .build()
                 );
             }
-            eventBuilder.setBlockExplode(builder.build());
+            eventBuilder.setBlockExplode(eventBuilderLocal.build());
         } else if (event instanceof BlockFadeEvent fadeEvent) {
             var block = fadeEvent.getBlock();
             var newState = fadeEvent.getNewState();
@@ -2806,21 +2889,21 @@ public class PatchBukkitEventFactory {
             );
         } else if (event instanceof BlockFertilizeEvent fertilizeEvent) {
             var block = fertilizeEvent.getBlock();
-            var builder = patchbukkit.events.BlockFertilizeEvent.newBuilder()
+            var eventBuilderLocal = patchbukkit.events.BlockFertilizeEvent.newBuilder()
                 .setPlayerUuid(UUID.newBuilder()
                     .setValue(fertilizeEvent.getPlayer().getUniqueId().toString())
                     .build())
                 .setBlockKey(block.getType().getKey().toString())
                 .setLocation(BridgeUtils.convertLocation(block.getLocation()));
             for (org.bukkit.block.BlockState state : fertilizeEvent.getBlocks()) {
-                builder.addBlocks(
+                eventBuilderLocal.addBlocks(
                     patchbukkit.events.BlockFertilizeBlockEntry.newBuilder()
                         .setBlockKey(state.getType().getKey().toString())
                         .setLocation(BridgeUtils.convertLocation(state.getLocation()))
                         .build()
                 );
             }
-            eventBuilder.setBlockFertilize(builder.build());
+            eventBuilder.setBlockFertilize(eventBuilderLocal.build());
         } else if (event instanceof BlockFormEvent formEvent) {
             var block = formEvent.getBlock();
             var newState = formEvent.getNewState();
@@ -2857,37 +2940,37 @@ public class PatchBukkitEventFactory {
         } else if (event instanceof BlockPistonExtendEvent extendEvent) {
             var block = extendEvent.getBlock();
             String direction = extendEvent.getDirection() != null ? extendEvent.getDirection().name() : "";
-            var builder = patchbukkit.events.BlockPistonExtendEvent.newBuilder()
+            var eventBuilderLocal = patchbukkit.events.BlockPistonExtendEvent.newBuilder()
                 .setBlockKey(block.getType().getKey().toString())
                 .setLocation(BridgeUtils.convertLocation(block.getLocation()))
                 .setDirection(direction)
-                .setLength(extendEvent.getLength());
+                .setLength(resolvePistonLength(extendEvent));
             for (Block b : extendEvent.getBlocks()) {
-                builder.addBlocks(
+                eventBuilderLocal.addBlocks(
                     patchbukkit.events.BlockPistonBlockEntry.newBuilder()
                         .setBlockKey(b.getType().getKey().toString())
                         .setLocation(BridgeUtils.convertLocation(b.getLocation()))
                         .build()
                 );
             }
-            eventBuilder.setBlockPistonExtend(builder.build());
+            eventBuilder.setBlockPistonExtend(eventBuilderLocal.build());
         } else if (event instanceof BlockPistonRetractEvent retractEvent) {
             var block = retractEvent.getBlock();
             String direction = retractEvent.getDirection() != null ? retractEvent.getDirection().name() : "";
-            var builder = patchbukkit.events.BlockPistonRetractEvent.newBuilder()
+            var eventBuilderLocal = patchbukkit.events.BlockPistonRetractEvent.newBuilder()
                 .setBlockKey(block.getType().getKey().toString())
                 .setLocation(BridgeUtils.convertLocation(block.getLocation()))
                 .setDirection(direction)
-                .setLength(retractEvent.getLength());
+                .setLength(resolvePistonLength(retractEvent));
             for (Block b : retractEvent.getBlocks()) {
-                builder.addBlocks(
+                eventBuilderLocal.addBlocks(
                     patchbukkit.events.BlockPistonBlockEntry.newBuilder()
                         .setBlockKey(b.getType().getKey().toString())
                         .setLocation(BridgeUtils.convertLocation(b.getLocation()))
                         .build()
                 );
             }
-            eventBuilder.setBlockPistonRetract(builder.build());
+            eventBuilder.setBlockPistonRetract(eventBuilderLocal.build());
         } else if (event instanceof BlockRedstoneEvent redstoneEvent) {
             var block = redstoneEvent.getBlock();
             eventBuilder.setBlockRedstone(
@@ -2900,29 +2983,29 @@ public class PatchBukkitEventFactory {
             );
         } else if (event instanceof BlockMultiPlaceEvent multiEvent) {
             var block = multiEvent.getBlock();
-            var builder = patchbukkit.events.BlockMultiPlaceEvent.newBuilder()
+            var eventBuilderLocal = patchbukkit.events.BlockMultiPlaceEvent.newBuilder()
                 .setPlayerUuid(UUID.newBuilder()
                     .setValue(multiEvent.getPlayer().getUniqueId().toString())
                     .build())
                 .setBlockKey(block.getType().getKey().toString())
                 .setLocation(BridgeUtils.convertLocation(block.getLocation()));
-            for (org.bukkit.block.BlockState state : multiEvent.getBlockStates()) {
-                builder.addBlocks(
+            for (org.bukkit.block.BlockState state : resolveMultiPlaceStates(multiEvent)) {
+                eventBuilderLocal.addBlocks(
                     patchbukkit.events.BlockMultiPlaceBlockEntry.newBuilder()
                         .setBlockKey(state.getType().getKey().toString())
                         .setLocation(BridgeUtils.convertLocation(state.getLocation()))
                         .build()
                 );
             }
-            eventBuilder.setBlockMultiPlace(builder.build());
+            eventBuilder.setBlockMultiPlace(eventBuilderLocal.build());
         } else if (event instanceof BlockPhysicsEvent physicsEvent) {
             var block = physicsEvent.getBlock();
-            var data = physicsEvent.getChangedType();
+            Material sourceMaterial = resolvePhysicsChangedMaterial(physicsEvent);
             eventBuilder.setBlockPhysics(
                 patchbukkit.events.BlockPhysicsEvent.newBuilder()
                     .setBlockKey(block.getType().getKey().toString())
                     .setLocation(BridgeUtils.convertLocation(block.getLocation()))
-                    .setSourceBlockKey(data.getMaterial().getKey().toString())
+                    .setSourceBlockKey(sourceMaterial.getKey().toString())
                     .setSourceLocation(BridgeUtils.convertLocation(block.getLocation()))
                     .build()
             );
@@ -2939,37 +3022,37 @@ public class PatchBukkitEventFactory {
         } else if (event instanceof SignChangeEvent signEvent) {
             Block block = signEvent.getBlock();
             String[] lines = signEvent.getLines();
-            var builder = patchbukkit.events.SignChangeEvent.newBuilder()
+            var eventBuilderLocal = patchbukkit.events.SignChangeEvent.newBuilder()
                 .setPlayerUuid(UUID.newBuilder()
                     .setValue(signEvent.getPlayer().getUniqueId().toString())
                     .build())
                 .setBlockKey(block.getType().getKey().toString())
                 .setLocation(BridgeUtils.convertLocation(block.getLocation()));
             for (String line : lines) {
-                builder.addLines(line != null ? line : "");
+                eventBuilderLocal.addLines(line != null ? line : "");
             }
             try {
                 java.lang.reflect.Method method = signEvent.getClass().getMethod("isFrontText");
                 Object value = method.invoke(signEvent);
                 if (value instanceof Boolean b) {
-                    builder.setIsFrontText(b);
+                    eventBuilderLocal.setIsFrontText(b);
                 }
             } catch (ReflectiveOperationException ignored) {
-                builder.setIsFrontText(true);
+                eventBuilderLocal.setIsFrontText(true);
             }
-            eventBuilder.setSignChange(builder.build());
+            eventBuilder.setSignChange(eventBuilderLocal.build());
         } else if (event instanceof TNTPrimeEvent tntEvent) {
             Block block = tntEvent.getBlock();
-            var builder = patchbukkit.events.TNTPrimeEvent.newBuilder()
+            var eventBuilderLocal = patchbukkit.events.TNTPrimeEvent.newBuilder()
                 .setBlockKey(block.getType().getKey().toString())
                 .setLocation(BridgeUtils.convertLocation(block.getLocation()))
                 .setCause(tntEvent.getCause().name());
             if (tntEvent.getPrimingEntity() instanceof Player player) {
-                builder.setPlayerUuid(UUID.newBuilder()
+                eventBuilderLocal.setPlayerUuid(UUID.newBuilder()
                     .setValue(player.getUniqueId().toString())
                     .build());
             }
-            eventBuilder.setTntPrime(builder.build());
+            eventBuilder.setTntPrime(eventBuilderLocal.build());
         } else if (event instanceof MoistureChangeEvent moistureEvent) {
             Block block = moistureEvent.getBlock();
             org.bukkit.block.BlockState newState = moistureEvent.getNewState();
@@ -2982,31 +3065,31 @@ public class PatchBukkitEventFactory {
             );
         } else if (event instanceof SpongeAbsorbEvent spongeEvent) {
             Block block = spongeEvent.getBlock();
-            var builder = patchbukkit.events.SpongeAbsorbEvent.newBuilder()
+            var eventBuilderLocal = patchbukkit.events.SpongeAbsorbEvent.newBuilder()
                 .setBlockKey(block.getType().getKey().toString())
                 .setLocation(BridgeUtils.convertLocation(block.getLocation()));
             for (org.bukkit.block.BlockState state : spongeEvent.getBlocks()) {
-                builder.addBlocks(
+                eventBuilderLocal.addBlocks(
                     patchbukkit.events.SpongeAbsorbBlockEntry.newBuilder()
                         .setBlockKey(state.getType().getKey().toString())
                         .setLocation(BridgeUtils.convertLocation(state.getLocation()))
                         .build()
                 );
             }
-            eventBuilder.setSpongeAbsorb(builder.build());
+            eventBuilder.setSpongeAbsorb(eventBuilderLocal.build());
         } else if (event instanceof FluidLevelChangeEvent fluidEvent) {
             Block block = fluidEvent.getBlock();
-            org.bukkit.block.BlockState newState = fluidEvent.getNewState();
+            String newBlockKey = resolveFluidNewBlockKey(fluidEvent);
             eventBuilder.setFluidLevelChange(
                 patchbukkit.events.FluidLevelChangeEvent.newBuilder()
                     .setBlockKey(block.getType().getKey().toString())
                     .setLocation(BridgeUtils.convertLocation(block.getLocation()))
-                    .setNewBlockKey(newState.getType().getKey().toString())
+                    .setNewBlockKey(newBlockKey)
                     .build()
             );
         } else if (event instanceof SpawnChangeEvent spawnEvent) {
-            Location location = spawnEvent.getLocation();
-            Location previous = spawnEvent.getPreviousLocation();
+            Location location = resolveSpawnChangeLocation(spawnEvent);
+            Location previous = resolveSpawnChangePreviousLocation(spawnEvent, location);
             if (previous == null) {
                 previous = location;
             }
@@ -3145,7 +3228,7 @@ public class PatchBukkitEventFactory {
                     onlinePlayers = count;
                 }
             } catch (ReflectiveOperationException ignored) {
-                onlinePlayers = pingEvent.getServer().getOnlinePlayers().size();
+                onlinePlayers = Bukkit.getOnlinePlayers().size();
             }
             String favicon = "";
             try {
@@ -3357,6 +3440,200 @@ public class PatchBukkitEventFactory {
     }
 
     @Nullable
+    static Block resolveIgnitingBlock(@NotNull BlockIgniteEvent event) {
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getIgnitingBlock");
+            Object value = method.invoke(event);
+            if (value instanceof Block block) {
+                return block;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    private static boolean resolveInstaBreak(@NotNull BlockDamageEvent event) {
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("isInstaBreak");
+            Object value = method.invoke(event);
+            if (value instanceof Boolean bool) {
+                return bool;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return false;
+    }
+
+    private static int resolvePistonLength(@NotNull Object pistonEvent) {
+        try {
+            java.lang.reflect.Method method = pistonEvent.getClass().getMethod("getLength");
+            Object value = method.invoke(pistonEvent);
+            if (value instanceof Integer len) {
+                return len;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Method method = pistonEvent.getClass().getMethod("getBlocks");
+            Object value = method.invoke(pistonEvent);
+            if (value instanceof java.util.List<?> list) {
+                return list.size();
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return 0;
+    }
+
+    @NotNull
+    private static java.util.List<org.bukkit.block.BlockState> resolveMultiPlaceStates(@NotNull BlockMultiPlaceEvent event) {
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getBlockStates");
+            Object value = method.invoke(event);
+            if (value instanceof java.util.List<?> list) {
+                java.util.List<org.bukkit.block.BlockState> states = new java.util.ArrayList<>();
+                for (Object entry : list) {
+                    if (entry instanceof org.bukkit.block.BlockState state) {
+                        states.add(state);
+                    }
+                }
+                return states;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getReplacedBlockStates");
+            Object value = method.invoke(event);
+            if (value instanceof java.util.List<?> list) {
+                java.util.List<org.bukkit.block.BlockState> states = new java.util.ArrayList<>();
+                for (Object entry : list) {
+                    if (entry instanceof org.bukkit.block.BlockState state) {
+                        states.add(state);
+                    }
+                }
+                return states;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return java.util.Collections.emptyList();
+    }
+
+    @NotNull
+    private static Material resolvePhysicsChangedMaterial(@NotNull BlockPhysicsEvent event) {
+        try {
+            Object changed = event.getChangedType();
+            if (changed instanceof Material material) {
+                return material;
+            }
+            if (changed != null) {
+                java.lang.reflect.Method method = changed.getClass().getMethod("getMaterial");
+                Object value = method.invoke(changed);
+                if (value instanceof Material material) {
+                    return material;
+                }
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return event.getBlock().getType();
+    }
+
+    @NotNull
+    private static String resolveFluidNewBlockKey(@NotNull FluidLevelChangeEvent event) {
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getNewState");
+            Object value = method.invoke(event);
+            if (value instanceof org.bukkit.block.BlockState state) {
+                return state.getType().getKey().toString();
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getNewData");
+            Object value = method.invoke(event);
+            if (value instanceof org.bukkit.block.data.BlockData data) {
+                return data.getMaterial().getKey().toString();
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getNewBlockData");
+            Object value = method.invoke(event);
+            if (value instanceof org.bukkit.block.data.BlockData data) {
+                return data.getMaterial().getKey().toString();
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return event.getBlock().getType().getKey().toString();
+    }
+
+    @Nullable
+    private static Location resolveSpawnChangeLocation(@NotNull SpawnChangeEvent event) {
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getLocation");
+            Object value = method.invoke(event);
+            if (value instanceof Location location) {
+                return location;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getNewLocation");
+            Object value = method.invoke(event);
+            if (value instanceof Location location) {
+                return location;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getNewSpawn");
+            Object value = method.invoke(event);
+            if (value instanceof Location location) {
+                return location;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return event.getWorld() != null ? event.getWorld().getSpawnLocation() : null;
+    }
+
+    @Nullable
+    private static Location resolveSpawnChangePreviousLocation(
+        @NotNull SpawnChangeEvent event,
+        @Nullable Location fallback
+    ) {
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getPreviousLocation");
+            Object value = method.invoke(event);
+            if (value instanceof Location location) {
+                return location;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod("getPreviousSpawn");
+            Object value = method.invoke(event);
+            if (value instanceof Location location) {
+                return location;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return fallback;
+    }
+
+    @Nullable
     private static org.bukkit.event.Event createHarvestBlockEvent(
         @NotNull Player player,
         @NotNull Block block,
@@ -3552,6 +3829,391 @@ public class PatchBukkitEventFactory {
     }
 
     @Nullable
+    private static org.bukkit.event.Event createPlayerBedEnterEvent(
+        @NotNull Player player,
+        @NotNull Block bed
+    ) {
+        try {
+            java.lang.reflect.Constructor<PlayerBedEnterEvent> ctor =
+                PlayerBedEnterEvent.class.getConstructor(Player.class, Block.class);
+            return ctor.newInstance(player, bed);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            Class<?> resultClass = Class.forName("org.bukkit.event.player.PlayerBedEnterEvent$BedEnterResult");
+            Class<?> actionClass = Class.forName("org.bukkit.event.player.PlayerBedEnterEvent$BedEnterAction");
+            Object result = firstEnumConstant(resultClass, "OK");
+            Object action = firstEnumConstant(actionClass, "RIGHT_CLICK");
+            java.lang.reflect.Constructor<PlayerBedEnterEvent> ctor =
+                PlayerBedEnterEvent.class.getConstructor(Player.class, Block.class, resultClass, actionClass);
+            return ctor.newInstance(player, bed, result, action);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static org.bukkit.event.Event createPlayerBedLeaveEvent(
+        @NotNull Player player,
+        @NotNull Block bed
+    ) {
+        try {
+            java.lang.reflect.Constructor<PlayerBedLeaveEvent> ctor =
+                PlayerBedLeaveEvent.class.getConstructor(Player.class, Block.class, boolean.class);
+            return ctor.newInstance(player, bed, false);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<PlayerBedLeaveEvent> ctor =
+                PlayerBedLeaveEvent.class.getConstructor(Player.class, Block.class);
+            return ctor.newInstance(player, bed);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static org.bukkit.event.Event createPlayerRecipeDiscoverEvent(
+        @NotNull Player player,
+        @NotNull NamespacedKey key
+    ) {
+        try {
+            java.lang.reflect.Constructor<PlayerRecipeDiscoverEvent> ctor =
+                PlayerRecipeDiscoverEvent.class.getConstructor(Player.class, NamespacedKey.class, boolean.class);
+            return ctor.newInstance(player, key, false);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<PlayerRecipeDiscoverEvent> ctor =
+                PlayerRecipeDiscoverEvent.class.getConstructor(Player.class, NamespacedKey.class);
+            return ctor.newInstance(player, key);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static org.bukkit.event.Event createPlayerShearEntityEvent(
+        @NotNull Player player,
+        @NotNull Entity entity,
+        @NotNull ItemStack item,
+        @NotNull EquipmentSlot slot
+    ) {
+        try {
+            java.lang.reflect.Constructor<PlayerShearEntityEvent> ctor =
+                PlayerShearEntityEvent.class.getConstructor(
+                    Player.class,
+                    Entity.class,
+                    ItemStack.class,
+                    EquipmentSlot.class,
+                    java.util.List.class
+                );
+            return ctor.newInstance(player, entity, item, slot, java.util.Collections.emptyList());
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<PlayerShearEntityEvent> ctor =
+                PlayerShearEntityEvent.class.getConstructor(Player.class, Entity.class, ItemStack.class, EquipmentSlot.class);
+            return ctor.newInstance(player, entity, item, slot);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<PlayerShearEntityEvent> ctor =
+                PlayerShearEntityEvent.class.getConstructor(Player.class, Entity.class);
+            return ctor.newInstance(player, entity);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static org.bukkit.event.Event createBlockDamageEvent(
+        @NotNull Block block,
+        @NotNull Player player,
+        @Nullable ItemStack item,
+        boolean instaBreak
+    ) {
+        try {
+            java.lang.reflect.Constructor<BlockDamageEvent> ctor =
+                BlockDamageEvent.class.getConstructor(Player.class, Block.class, ItemStack.class, boolean.class);
+            return ctor.newInstance(player, block, item, instaBreak);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<BlockDamageEvent> ctor =
+                BlockDamageEvent.class.getConstructor(Block.class, Player.class, ItemStack.class, boolean.class);
+            return ctor.newInstance(block, player, item, instaBreak);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<BlockDamageEvent> ctor =
+                BlockDamageEvent.class.getConstructor(Block.class, Player.class, ItemStack.class);
+            return ctor.newInstance(block, player, item);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static org.bukkit.event.Event createBlockDamageAbortEvent(
+        @NotNull Block block,
+        @NotNull Player player,
+        @Nullable ItemStack item
+    ) {
+        try {
+            java.lang.reflect.Constructor<BlockDamageAbortEvent> ctor =
+                BlockDamageAbortEvent.class.getConstructor(Player.class, Block.class, ItemStack.class);
+            return ctor.newInstance(player, block, item);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<BlockDamageAbortEvent> ctor =
+                BlockDamageAbortEvent.class.getConstructor(Block.class, Player.class, ItemStack.class);
+            return ctor.newInstance(block, player, item);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static org.bukkit.event.Event createBlockDropItemEvent(
+        @NotNull Block block,
+        @NotNull Player player,
+        @NotNull java.util.List<org.bukkit.entity.Item> items
+    ) {
+        try {
+            java.lang.reflect.Constructor<BlockDropItemEvent> ctor =
+                BlockDropItemEvent.class.getConstructor(Block.class, org.bukkit.block.BlockState.class, Player.class, java.util.List.class);
+            return ctor.newInstance(block, block.getState(), player, items);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<BlockDropItemEvent> ctor =
+                BlockDropItemEvent.class.getConstructor(Block.class, Player.class, java.util.List.class);
+            return ctor.newInstance(block, player, items);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static org.bukkit.event.Event createBlockExplodeEvent(
+        @NotNull Block block,
+        @NotNull java.util.List<Block> blocks,
+        float yield
+    ) {
+        try {
+            java.lang.reflect.Constructor<BlockExplodeEvent> ctor =
+                BlockExplodeEvent.class.getConstructor(Block.class, org.bukkit.block.BlockState.class, java.util.List.class, float.class);
+            return ctor.newInstance(block, block.getState(), blocks, yield);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            Class<?> resultClass = Class.forName("org.bukkit.event.block.BlockExplodeEvent$ExplosionResult");
+            Object result = firstEnumConstant(resultClass, "DESTROY");
+            java.lang.reflect.Constructor<BlockExplodeEvent> ctor =
+                BlockExplodeEvent.class.getConstructor(Block.class, org.bukkit.block.BlockState.class, java.util.List.class, float.class, resultClass);
+            return ctor.newInstance(block, block.getState(), blocks, yield, result);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<BlockExplodeEvent> ctor =
+                BlockExplodeEvent.class.getConstructor(Block.class, java.util.List.class, float.class);
+            return ctor.newInstance(block, blocks, yield);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static org.bukkit.event.Event createBlockPistonExtendEvent(
+        @NotNull Block block,
+        @NotNull java.util.List<Block> blocks,
+        int length,
+        @NotNull BlockFace face
+    ) {
+        try {
+            java.lang.reflect.Constructor<BlockPistonExtendEvent> ctor =
+                BlockPistonExtendEvent.class.getConstructor(Block.class, java.util.List.class, BlockFace.class);
+            return ctor.newInstance(block, blocks, face);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<BlockPistonExtendEvent> ctor =
+                BlockPistonExtendEvent.class.getConstructor(Block.class, int.class, BlockFace.class);
+            return ctor.newInstance(block, length, face);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<BlockPistonExtendEvent> ctor =
+                BlockPistonExtendEvent.class.getConstructor(Block.class, java.util.List.class, int.class);
+            return ctor.newInstance(block, blocks, length);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static org.bukkit.event.Event createBlockPistonRetractEvent(
+        @NotNull Block block,
+        @NotNull java.util.List<Block> blocks,
+        int length,
+        @NotNull BlockFace face
+    ) {
+        try {
+            java.lang.reflect.Constructor<BlockPistonRetractEvent> ctor =
+                BlockPistonRetractEvent.class.getConstructor(Block.class, java.util.List.class, BlockFace.class);
+            return ctor.newInstance(block, blocks, face);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<BlockPistonRetractEvent> ctor =
+                BlockPistonRetractEvent.class.getConstructor(Block.class, int.class, BlockFace.class);
+            return ctor.newInstance(block, length, face);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<BlockPistonRetractEvent> ctor =
+                BlockPistonRetractEvent.class.getConstructor(Block.class, java.util.List.class, int.class);
+            return ctor.newInstance(block, blocks, length);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static org.bukkit.event.Event createFluidLevelChangeEvent(
+        @NotNull Block block,
+        @NotNull Block newBlock
+    ) {
+        try {
+            java.lang.reflect.Constructor<FluidLevelChangeEvent> ctor =
+                FluidLevelChangeEvent.class.getConstructor(Block.class, org.bukkit.block.data.BlockData.class);
+            return ctor.newInstance(block, newBlock.getBlockData());
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<FluidLevelChangeEvent> ctor =
+                FluidLevelChangeEvent.class.getConstructor(Block.class, org.bukkit.block.BlockState.class);
+            return ctor.newInstance(block, newBlock.getState());
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static org.bukkit.event.Event createEntityDeathEvent(@NotNull org.bukkit.entity.LivingEntity entity) {
+        java.util.List<ItemStack> drops = java.util.Collections.emptyList();
+        int exp = 0;
+        try {
+            java.lang.reflect.Constructor<EntityDeathEvent> ctor =
+                EntityDeathEvent.class.getConstructor(org.bukkit.entity.LivingEntity.class, java.util.List.class, int.class);
+            return ctor.newInstance(entity, drops, exp);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            Class<?> damageSourceClass = Class.forName("org.bukkit.damage.DamageSource");
+            java.lang.reflect.Constructor<EntityDeathEvent> ctor =
+                EntityDeathEvent.class.getConstructor(
+                    org.bukkit.entity.LivingEntity.class,
+                    java.util.List.class,
+                    int.class,
+                    damageSourceClass
+                );
+            return ctor.newInstance(entity, drops, exp, null);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static org.bukkit.event.Event createBroadcastMessageEvent(
+        @NotNull Component messageComponent,
+        @NotNull String message
+    ) {
+        java.util.Set<org.bukkit.command.CommandSender> recipients = java.util.Collections.emptySet();
+        try {
+            java.lang.reflect.Constructor<BroadcastMessageEvent> ctor =
+                BroadcastMessageEvent.class.getConstructor(String.class, java.util.Set.class);
+            return ctor.newInstance(message, recipients);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<BroadcastMessageEvent> ctor =
+                BroadcastMessageEvent.class.getConstructor(boolean.class, String.class, java.util.Set.class);
+            return ctor.newInstance(false, message, recipients);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<BroadcastMessageEvent> ctor =
+                BroadcastMessageEvent.class.getConstructor(Component.class, java.util.Set.class);
+            return ctor.newInstance(messageComponent, recipients);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        try {
+            java.lang.reflect.Constructor<BroadcastMessageEvent> ctor =
+                BroadcastMessageEvent.class.getConstructor(boolean.class, Component.class, java.util.Set.class);
+            return ctor.newInstance(false, messageComponent, recipients);
+        } catch (ReflectiveOperationException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    @Nullable
+    private static Object firstEnumConstant(@NotNull Class<?> enumClass, @Nullable String preferredName) {
+        if (!enumClass.isEnum()) {
+            return null;
+        }
+        Object[] values = enumClass.getEnumConstants();
+        if (values == null || values.length == 0) {
+            return null;
+        }
+        if (preferredName != null) {
+            try {
+                @SuppressWarnings("unchecked")
+                Object value = Enum.valueOf((Class<Enum>) enumClass, preferredName);
+                return value;
+            } catch (IllegalArgumentException ignored) {
+                // ignore
+            }
+        }
+        return values[0];
+    }
+
+    @Nullable
     private static RegisteredServiceProvider<?> resolveServiceProvider(
         @NotNull String serviceName,
         @NotNull String pluginName
@@ -3619,7 +4281,10 @@ public class PatchBukkitEventFactory {
                     continue;
                 }
                 try {
-                    Object created = ctor.newInstance(serviceClass, instance, ServicePriority.NORMAL, plugin);
+                    ServicePriority priority = ServicePriority.values().length > 0
+                        ? ServicePriority.values()[0]
+                        : null;
+                    Object created = ctor.newInstance(serviceClass, instance, priority, plugin);
                     if (created instanceof RegisteredServiceProvider<?> provider) {
                         return provider;
                     }

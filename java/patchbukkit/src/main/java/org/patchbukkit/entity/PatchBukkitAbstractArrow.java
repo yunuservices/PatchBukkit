@@ -7,6 +7,9 @@ import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.entity.AbstractArrow;
 import org.bukkit.inventory.ItemStack;
+import org.jetbrains.annotations.NotNull;
+import java.util.Collections;
+import java.util.List;
 
 public class PatchBukkitAbstractArrow extends PatchBukkitProjectile implements AbstractArrow {
     private PickupStatus pickupStatus = PickupStatus.ALLOWED;
@@ -28,6 +31,11 @@ public class PatchBukkitAbstractArrow extends PatchBukkitProjectile implements A
 
     public Block getAttachedBlock() {
         return null;
+    }
+
+    @Override
+    public @NotNull List<Block> getAttachedBlocks() {
+        return Collections.emptyList();
     }
 
     public double getDamage() {
@@ -92,6 +100,16 @@ public class PatchBukkitAbstractArrow extends PatchBukkitProjectile implements A
         }
     }
 
+    @Override
+    public @NotNull ItemStack getItemStack() {
+        return getItem();
+    }
+
+    @Override
+    public void setItemStack(@NotNull ItemStack stack) {
+        setItem(stack);
+    }
+
     public ItemStack getWeapon() {
         return weapon != null ? weapon : item;
     }
@@ -124,5 +142,13 @@ public class PatchBukkitAbstractArrow extends PatchBukkitProjectile implements A
 
     public void setLifetimeTicks(int ticks) {
         this.lifetimeTicks = ticks;
+    }
+
+    @Override
+    public void setShooter(org.bukkit.projectiles.ProjectileSource shooter, boolean update) {
+        setShooter(shooter);
+        if (update) {
+            setHasBeenShot(true);
+        }
     }
 }

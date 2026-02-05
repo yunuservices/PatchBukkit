@@ -53,4 +53,20 @@ public class BridgeUtils {
             .setPitch(location.getPitch())
             .build();
     }
+
+    public static PatchBukkitWorld convertWorld(patchbukkit.common.World world) {
+        if (world == null || world.getUuid() == null) {
+            return null;
+        }
+        return PatchBukkitWorld.getOrCreate(convertUuid(world.getUuid()));
+    }
+
+    public static patchbukkit.common.World convertWorld(org.bukkit.World world) {
+        if (world == null) {
+            return null;
+        }
+        return patchbukkit.common.World.newBuilder()
+            .setUuid(convertUuid(world.getUID()))
+            .build();
+    }
 }
