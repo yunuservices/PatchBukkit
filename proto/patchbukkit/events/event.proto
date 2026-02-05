@@ -75,6 +75,7 @@ message Event {
     BlockCanBuildEvent block_can_build = 60;
     BlockBurnEvent block_burn = 61;
     BlockIgniteEvent block_ignite = 62;
+    BlockSpreadEvent block_spread = 63;
   }
 }
 

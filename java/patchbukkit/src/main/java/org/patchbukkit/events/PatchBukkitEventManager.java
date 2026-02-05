@@ -1051,6 +1051,21 @@ public class PatchBukkitEventManager {
                     ).build()
                 );
                 break;
+            case "org.bukkit.event.block.BlockSpreadEvent":
+                var spreadEvent = (org.bukkit.event.block.BlockSpreadEvent) event;
+                Block spreadBlock = spreadEvent.getBlock();
+                Block spreadSource = spreadEvent.getSource();
+                request.setEvent(
+                    patchbukkit.events.Event.newBuilder().setBlockSpread(
+                        patchbukkit.events.BlockSpreadEvent.newBuilder()
+                            .setSourceBlockKey(spreadSource.getType().getKey().toString())
+                            .setSourceLocation(BridgeUtils.convertLocation(spreadSource.getLocation()))
+                            .setBlockKey(spreadBlock.getType().getKey().toString())
+                            .setLocation(BridgeUtils.convertLocation(spreadBlock.getLocation()))
+                            .build()
+                    ).build()
+                );
+                break;
             case "org.bukkit.event.block.BlockPlaceEvent":
                 var placeEvent = (org.bukkit.event.block.BlockPlaceEvent) event;
                 request.setEvent(

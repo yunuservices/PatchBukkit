@@ -44,6 +44,13 @@ message BlockIgniteEvent {
   string cause = 5;
 }
 
+message BlockSpreadEvent {
+  string source_block_key = 1;
+  patchbukkit.common.Location source_location = 2;
+  string block_key = 3;
+  patchbukkit.common.Location location = 4;
+}
+
 message PlayerInteractEvent {
   patchbukkit.common.UUID player_uuid = 1;
   string action = 2;

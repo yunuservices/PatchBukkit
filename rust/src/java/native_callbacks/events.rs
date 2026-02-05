@@ -6,6 +6,7 @@ use pumpkin::plugin::block::block_place::BlockPlaceEvent;
 use pumpkin::plugin::block::block_can_build::BlockCanBuildEvent;
 use pumpkin::plugin::block::block_burn::BlockBurnEvent;
 use pumpkin::plugin::block::block_ignite::BlockIgniteEvent;
+use pumpkin::plugin::block::block_spread::BlockSpreadEvent;
 use pumpkin::plugin::player::player_chat::PlayerChatEvent;
 use pumpkin::plugin::player::player_command_preprocess::PlayerCommandPreprocessEvent;
 use pumpkin::plugin::player::player_command_send::PlayerCommandSendEvent;
@@ -1021,6 +1022,21 @@ pub fn ffi_native_bridge_register_event_impl(request: RegisterEventRequest) -> O
                         .register_event::<
                             pumpkin::plugin::block::block_ignite::BlockIgniteEvent,
                             PatchBukkitEventHandler<pumpkin::plugin::block::block_ignite::BlockIgniteEvent>,
+                        >(
+                            Arc::new(PatchBukkitEventHandler::new(
+                                request.plugin_name.clone(),
+                                command_tx.clone(),
+                            )),
+                            pumpkin_priority,
+                            request.blocking,
+                        )
+                        .await;
+                }
+                "org.bukkit.event.block.BlockSpreadEvent" => {
+                    context
+                        .register_event::<
+                            pumpkin::plugin::block::block_spread::BlockSpreadEvent,
+                            PatchBukkitEventHandler<pumpkin::plugin::block::block_spread::BlockSpreadEvent>,
                         >(
                             Arc::new(PatchBukkitEventHandler::new(
                                 request.plugin_name.clone(),
@@ -2252,6 +2268,66 @@ pub fn ffi_native_bridge_call_event_impl(request: CallEventRequest) -> Option<Ca
                         block_pos,
                         world_uuid,
                         cause,
+                        cancelled: false,
+                    };
+                    context.server.plugin_manager.fire(pumpkin_event).await;
+                    Some(true)
+                }
+                Data::BlockSpread(block_spread_event_data) => {
+                    let source_block = block_from_key(&block_spread_event_data.source_block_key);
+                    let block = block_from_key(&block_spread_event_data.block_key);
+                    let (world_uuid, source_pos) =
+                        if let Some(loc) = block_spread_event_data.source_location {
+                            let world_uuid = loc
+                                .world
+                                .and_then(|w| w.uuid)
+                                .and_then(|uuid| uuid::Uuid::parse_str(&uuid.value).ok())
+                                .unwrap_or_else(|| {
+                                    context
+                                        .server
+                                        .worlds
+                                        .load()
+                                        .first()
+                                        .map(|w| w.uuid)
+                                        .unwrap_or_else(uuid::Uuid::new_v4)
+                                });
+                            let pos = location_to_vec3(loc).unwrap_or_else(Vector3::default);
+                            (
+                                world_uuid,
+                                pumpkin_util::math::position::BlockPos::new(
+                                    pos.x.floor() as i32,
+                                    pos.y.floor() as i32,
+                                    pos.z.floor() as i32,
+                                ),
+                            )
+                        } else {
+                            (
+                                context
+                                    .server
+                                    .worlds
+                                    .load()
+                                    .first()
+                                    .map(|w| w.uuid)
+                                    .unwrap_or_else(uuid::Uuid::new_v4),
+                                pumpkin_util::math::position::BlockPos::new(0, 0, 0),
+                            )
+                        };
+                    let block_pos = if let Some(loc) = block_spread_event_data.location {
+                        let pos = location_to_vec3(loc).unwrap_or_else(Vector3::default);
+                        pumpkin_util::math::position::BlockPos::new(
+                            pos.x.floor() as i32,
+                            pos.y.floor() as i32,
+                            pos.z.floor() as i32,
+                        )
+                    } else {
+                        source_pos
+                    };
+                    let pumpkin_event = BlockSpreadEvent {
+                        source_block,
+                        source_pos,
+                        block,
+                        block_pos,
+                        world_uuid,
                         cancelled: false,
                     };
                     context.server.plugin_manager.fire(pumpkin_event).await;

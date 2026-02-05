@@ -11,6 +11,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockCanBuildEvent;
 import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
+import org.bukkit.event.block.BlockSpreadEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -1085,6 +1086,30 @@ public class PatchBukkitEventFactory {
                 BlockIgniteEvent eventObj = new BlockIgniteEvent(block, cause, player);
                 yield eventObj;
             }
+            case BLOCK_SPREAD -> {
+                patchbukkit.events.BlockSpreadEvent spreadEvent = event.getBlockSpread();
+                Location sourceLocation = BridgeUtils.convertLocation(spreadEvent.getSourceLocation());
+                Location location = BridgeUtils.convertLocation(spreadEvent.getLocation());
+                if (sourceLocation == null || location == null) yield null;
+                if (!(sourceLocation.getWorld() instanceof PatchBukkitWorld sourceWorld)) yield null;
+                if (!(location.getWorld() instanceof PatchBukkitWorld world)) yield null;
+                Block sourceBlock = PatchBukkitBlock.create(
+                    sourceWorld,
+                    sourceLocation.getBlockX(),
+                    sourceLocation.getBlockY(),
+                    sourceLocation.getBlockZ(),
+                    spreadEvent.getSourceBlockKey()
+                );
+                Block block = PatchBukkitBlock.create(
+                    world,
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    spreadEvent.getBlockKey()
+                );
+                org.bukkit.block.BlockState newState = block.getState();
+                yield new BlockSpreadEvent(block, sourceBlock, newState);
+            }
             case BLOCK_PLACE -> {
                 patchbukkit.events.BlockPlaceEvent placeEvent = event.getBlockPlace();
                 Player player = getPlayer(placeEvent.getPlayerUuid().getValue());
@@ -2015,6 +2040,17 @@ public class PatchBukkitEventFactory {
                     .setIgnitingBlockKey(ignitingKey)
                     .setLocation(BridgeUtils.convertLocation(block.getLocation()))
                     .setCause(cause)
+                    .build()
+            );
+        } else if (event instanceof BlockSpreadEvent spreadEvent) {
+            Block block = spreadEvent.getBlock();
+            Block sourceBlock = spreadEvent.getSource();
+            eventBuilder.setBlockSpread(
+                patchbukkit.events.BlockSpreadEvent.newBuilder()
+                    .setSourceBlockKey(sourceBlock.getType().getKey().toString())
+                    .setSourceLocation(BridgeUtils.convertLocation(sourceBlock.getLocation()))
+                    .setBlockKey(block.getType().getKey().toString())
+                    .setLocation(BridgeUtils.convertLocation(block.getLocation()))
                     .build()
             );
         } else if (event instanceof BlockPlaceEvent placeEvent) {
