@@ -1806,8 +1806,12 @@ public class PatchBukkitEventFactory {
             }
             case BLOCK_IGNITE -> {
                 patchbukkit.events.BlockIgniteEvent igniteEvent = event.getBlockIgnite();
-                Player player = getPlayer(igniteEvent.getPlayerUuid().getValue());
-                if (player == null) yield null;
+                Player player = null;
+                if (igniteEvent.hasPlayerUuid()
+                    && igniteEvent.getPlayerUuid() != null
+                    && !igniteEvent.getPlayerUuid().getValue().isEmpty()) {
+                    player = getPlayer(igniteEvent.getPlayerUuid().getValue());
+                }
                 Location location = BridgeUtils.convertLocation(igniteEvent.getLocation());
                 if (location == null || !(location.getWorld() instanceof PatchBukkitWorld world)) {
                     yield null;
@@ -3134,16 +3138,20 @@ public class PatchBukkitEventFactory {
             String ignitingKey = ignitingBlock != null
                 ? ignitingBlock.getType().getKey().toString()
                 : "minecraft:fire";
-            eventBuilder.setBlockIgnite(
-                patchbukkit.events.BlockIgniteEvent.newBuilder()
-                    .setPlayerUuid(UUID.newBuilder()
+            var igniteBuilder = patchbukkit.events.BlockIgniteEvent.newBuilder()
+                .setBlockKey(block.getType().getKey().toString())
+                .setIgnitingBlockKey(ignitingKey)
+                .setLocation(BridgeUtils.convertLocation(block.getLocation()))
+                .setCause(cause);
+            if (igniteEvent.getPlayer() != null) {
+                igniteBuilder.setPlayerUuid(
+                    UUID.newBuilder()
                         .setValue(igniteEvent.getPlayer().getUniqueId().toString())
-                        .build())
-                    .setBlockKey(block.getType().getKey().toString())
-                    .setIgnitingBlockKey(ignitingKey)
-                    .setLocation(BridgeUtils.convertLocation(block.getLocation()))
-                    .setCause(cause)
-                    .build()
+                        .build()
+                );
+            }
+            eventBuilder.setBlockIgnite(
+                igniteBuilder.build()
             );
         } else if (event instanceof BlockSpreadEvent spreadEvent) {
             Block block = spreadEvent.getBlock();

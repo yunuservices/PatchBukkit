@@ -1253,14 +1253,8 @@ impl PatchBukkitEvent for pumpkin::plugin::api::events::player::player_toggle_fl
 
 impl PatchBukkitEvent for pumpkin::plugin::api::events::block::block_dispense::BlockDispenseEvent {
     fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
-        let world_uuid = server
-            .worlds
-            .load()
-            .first()
-            .map(|world| world.uuid)
-            .unwrap_or_default();
         let location = build_location(
-            world_uuid,
+            self.world_uuid,
             &Vector3::new(
                 f64::from(self.block_position.0.x),
                 f64::from(self.block_position.0.y),
@@ -1499,14 +1493,8 @@ impl PatchBukkitEvent for pumpkin::plugin::api::events::block::block_multi_place
 
 impl PatchBukkitEvent for pumpkin::plugin::api::events::block::block_redstone::BlockRedstoneEvent {
     fn to_payload(&self, server: Arc<Server>) -> JvmEventPayload {
-        let world_uuid = server
-            .worlds
-            .load()
-            .first()
-            .map(|world| world.uuid)
-            .unwrap_or_default();
         let location = build_location(
-            world_uuid,
+            self.world_uuid,
             &Vector3::new(
                 f64::from(self.block_pos.0.x),
                 f64::from(self.block_pos.0.y),
