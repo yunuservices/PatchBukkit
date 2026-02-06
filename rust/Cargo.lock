@@ -2226,7 +2226,7 @@ dependencies = [
 [[package]]
 name = "pumpkin"
 version = "0.1.0-dev+1.21.11"
-source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#235fbcf70cf686a7f14e5b19ccb279d7ac5d4f5e"
+source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#ba0410c324819ba5cfb693ac722e3a0bb3bab378"
 dependencies = [
  "arc-swap",
  "base64",
@@ -2267,7 +2267,7 @@ dependencies = [
 [[package]]
 name = "pumpkin-api-macros"
 version = "0.1.0-dev+1.21.11"
-source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#235fbcf70cf686a7f14e5b19ccb279d7ac5d4f5e"
+source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#ba0410c324819ba5cfb693ac722e3a0bb3bab378"
 dependencies = [
  "proc-macro-error2",
  "proc-macro2",
@@ -2278,7 +2278,7 @@ dependencies = [
 [[package]]
 name = "pumpkin-config"
 version = "0.1.0-dev+1.21.11"
-source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#235fbcf70cf686a7f14e5b19ccb279d7ac5d4f5e"
+source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#ba0410c324819ba5cfb693ac722e3a0bb3bab378"
 dependencies = [
  "log",
  "pumpkin-util",
@@ -2290,7 +2290,7 @@ dependencies = [
 [[package]]
 name = "pumpkin-data"
 version = "0.1.0-dev+1.21.11"
-source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#235fbcf70cf686a7f14e5b19ccb279d7ac5d4f5e"
+source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#ba0410c324819ba5cfb693ac722e3a0bb3bab378"
 dependencies = [
  "crc-fast",
  "heck",
@@ -2310,7 +2310,7 @@ dependencies = [
 [[package]]
 name = "pumpkin-inventory"
 version = "0.1.0-dev+1.21.11"
-source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#235fbcf70cf686a7f14e5b19ccb279d7ac5d4f5e"
+source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#ba0410c324819ba5cfb693ac722e3a0bb3bab378"
 dependencies = [
  "crossbeam-utils",
  "log",
@@ -2325,7 +2325,7 @@ dependencies = [
 [[package]]
 name = "pumpkin-macros"
 version = "0.1.0-dev+1.21.11"
-source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#235fbcf70cf686a7f14e5b19ccb279d7ac5d4f5e"
+source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#ba0410c324819ba5cfb693ac722e3a0bb3bab378"
 dependencies = [
  "proc-macro-error2",
  "pumpkin-data",
@@ -2336,7 +2336,7 @@ dependencies = [
 [[package]]
 name = "pumpkin-nbt"
 version = "0.1.0-dev+1.21.11"
-source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#235fbcf70cf686a7f14e5b19ccb279d7ac5d4f5e"
+source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#ba0410c324819ba5cfb693ac722e3a0bb3bab378"
 dependencies = [
  "bytes",
  "cesu8",
@@ -2348,7 +2348,7 @@ dependencies = [
 [[package]]
 name = "pumpkin-protocol"
 version = "0.1.0-dev+1.21.11"
-source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#235fbcf70cf686a7f14e5b19ccb279d7ac5d4f5e"
+source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#ba0410c324819ba5cfb693ac722e3a0bb3bab378"
 dependencies = [
  "aes",
  "async-compression",
@@ -2370,7 +2370,7 @@ dependencies = [
 [[package]]
 name = "pumpkin-util"
 version = "0.1.0-dev+1.21.11"
-source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#235fbcf70cf686a7f14e5b19ccb279d7ac5d4f5e"
+source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#ba0410c324819ba5cfb693ac722e3a0bb3bab378"
 dependencies = [
  "base64",
  "bytes",
@@ -2395,7 +2395,7 @@ dependencies = [
 [[package]]
 name = "pumpkin-world"
 version = "0.1.0-dev+1.21.11"
-source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#235fbcf70cf686a7f14e5b19ccb279d7ac5d4f5e"
+source = "git+https://github.com/yunuservices/Pumpkin.git?branch=feat%2Fevents#ba0410c324819ba5cfb693ac722e3a0bb3bab378"
 dependencies = [
  "bitflags",
  "bytes",
